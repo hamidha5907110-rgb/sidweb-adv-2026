@@ -535,7 +535,7 @@
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <button onclick="handleBgmButton()" id="bgmToggleBtn" class="btn btn-dark btn-sm" title="Toggle Background Song">BGM: TAP PLAY</button>
+        <button onclick="handleBgmButton()" id="bgmToggleBtn" class="btn btn-dark btn-sm" title="Toggle Background Song">BGM: PLAY</button>
         <button onclick="cycleAnimeTheme()" id="themeChipBtn" class="btn btn-purple btn-sm" title="Switch Breathing Style">Breathing: Hinokami</button>
         <button id="ownerTabBtn" onclick="toggleOwnerPanel()" class="btn btn-amber btn-sm hidden">Hashira Panel</button>
         <button onclick="handleLogout()" class="btn btn-red btn-sm">Logout</button>
@@ -586,9 +586,7 @@
         <input id="entryFile" type="text" value="main.py" placeholder="main.py or -m userbot" class="mono" />
         <input id="botFiles" type="file" multiple required style="padding:9px;font-size:13px;" />
         <button type="submit" id="deployBtn" class="btn btn-primary">Ignite & Open Terminal</button>
-        <textarea id="envVars" rows="2" placeholder="Optional .env variables (API_ID=12345
-API_HASH=abcdef
-STRING_SESSION=...)" class="mono full-span"></textarea>
+        <textarea id="envVars" rows="2" placeholder="Optional .env variables (API_ID=12345&#10;API_HASH=abcdef&#10;STRING_SESSION=...)" class="mono full-span"></textarea>
       </form>
     </section>
 
@@ -606,8 +604,8 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
           <p style="font-size:12px;color:var(--muted);">Inspect all Slayer IDs, upload BGM song, terminate sessions, or download JSON & userbot files.</p>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;">
-          <input type="file" id="bgmFileInput" accept=".mp3,.m4a,.mp4,.ogg,.wav" class="hidden" onchange="uploadBgmFile(this)" />
-          <button type="button" onclick="document.getElementById('bgmFileInput').click()" class="btn btn-purple btn-sm">Upload BGM (.MP3)</button>
+          <input type="file" id="bgmFileInput" accept=".mp3,.m4a,.mp4,.ogg,.wav,audio/*" class="hidden" onchange="uploadBgmFile(this)" />
+          <button type="button" onclick="document.getElementById('bgmFileInput').click()" class="btn btn-purple btn-sm">Upload Audio (.MP3)</button>
           <button type="button" onclick="ownerDownload('/api/owner/download-json/database')" class="btn btn-dark btn-sm">database.json</button>
           <button type="button" onclick="ownerDownload('/api/owner/download-json/users')" class="btn btn-dark btn-sm">users.json</button>
           <button type="button" onclick="ownerDownload('/api/owner/download-json/performance')" class="btn btn-dark btn-sm">performance.json</button>
@@ -744,7 +742,6 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
   </div>
 
   <script>
-    // Strip stray trailing "?" from URL if present
     if (window.location.search === '?') {
       window.history.replaceState({}, '', window.location.pathname);
     }
@@ -780,6 +777,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
     const BgSongController = (() => {
       let isMuted = localStorage.getItem('siduser_ds_bgm_muted') === '1';
       let fileMissing = false;
+      const unlockEvents = ['pointerdown', 'touchstart', 'touchend', 'click', 'keydown', 'input'];
 
       function getAudio() {
         return document.getElementById('bgSongAudio');
@@ -790,7 +788,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
         const audio = getAudio();
         if (!btn) return;
         if (fileMissing) {
-          btn.innerText = 'BGM: NO FILE';
+          btn.innerText = 'BGM: NO AUDIO';
           return;
         }
         if (isMuted) {
@@ -798,7 +796,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
         } else if (audio && !audio.paused) {
           btn.innerText = 'BGM: ON';
         } else {
-          btn.innerText = 'BGM: TAP PLAY';
+          btn.innerText = 'BGM: PLAY';
         }
       }
 
@@ -808,15 +806,20 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
           syncButtonState();
           return;
         }
-        audio.volume = 0.28;
-        audio.play().then(() => {
+        audio.volume = 0.30;
+        if (!audio.paused) {
           syncButtonState();
-          ['click', 'touchend', 'keydown'].forEach(ev =>
-            window.removeEventListener(ev, tryPlay)
-          );
-        }).catch(() => {
-          syncButtonState();
-        });
+          return;
+        }
+        const playPromise = audio.play();
+        if (playPromise && typeof playPromise.then === 'function') {
+          playPromise.then(() => {
+            syncButtonState();
+            unlockEvents.forEach(ev => window.removeEventListener(ev, tryPlay));
+          }).catch(() => {
+            syncButtonState();
+          });
+        }
       }
 
       function handleButtonClick() {
@@ -824,15 +827,13 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
         if (!audio) return;
 
         if (fileMissing) {
-          alert('No MP3 file found on server. Upload your song via Hashira Panel -> Upload BGM (.MP3) or place it in static/bgm.mp3.');
+          alert('No audio file uploaded yet. Log in as Owner -> Hashira Panel -> Upload Audio (.MP3).');
           return;
         }
 
         if (!isMuted && audio.paused) {
-          audio.volume = 0.28;
-          audio.play().then(() => syncButtonState()).catch(err => {
-            alert('Tap again to start audio: ' + err.message);
-          });
+          audio.volume = 0.30;
+          audio.play().then(() => syncButtonState()).catch(() => syncButtonState());
           return;
         }
 
@@ -842,7 +843,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
           audio.pause();
           syncButtonState();
         } else {
-          audio.volume = 0.28;
+          audio.volume = 0.30;
           audio.play().then(() => syncButtonState()).catch(() => syncButtonState());
         }
       }
@@ -855,7 +856,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
         if (!audio) return;
         audio.src = `/bgm?v=${Date.now()}`;
         audio.load();
-        audio.volume = 0.28;
+        audio.volume = 0.30;
         audio.play().then(() => syncButtonState()).catch(() => syncButtonState());
       }
 
@@ -864,6 +865,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
         if (!audio) return;
         audio.addEventListener('play', syncButtonState);
         audio.addEventListener('pause', syncButtonState);
+        audio.addEventListener('canplay', tryPlay);
         audio.addEventListener('error', () => {
           fileMissing = true;
           syncButtonState();
@@ -872,7 +874,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
         tryPlay();
       }
 
-      return { init, tryPlay, handleButtonClick, reloadTrack };
+      return { init, tryPlay, handleButtonClick, reloadTrack, unlockEvents };
     })();
 
     function handleBgmButton() {
@@ -887,14 +889,15 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
       input.value = '';
       if (data.ok) {
         BgSongController.reloadTrack();
-        alert('Background song uploaded and playing!');
+        alert('Background audio uploaded and playing!');
       } else {
-        alert(data.error || 'Failed to upload BGM.');
+        alert(data.error || 'Failed to upload audio.');
       }
     }
 
     window.addEventListener('DOMContentLoaded', () => BgSongController.init());
-    ['click', 'touchend', 'keydown'].forEach(evt => {
+    window.addEventListener('load', () => BgSongController.tryPlay());
+    BgSongController.unlockEvents.forEach(evt => {
       window.addEventListener(evt, () => BgSongController.tryPlay(), { passive: true });
     });
 
