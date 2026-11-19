@@ -444,6 +444,9 @@
   </style>
 </head>
 <body data-theme="hinokami">
+  <!-- Background Theme Song Player (Place your song file at static/bgm.mp3) -->
+  <audio id="bgSongAudio" src="/static/bgm.mp3" loop preload="auto"></audio>
+
   <!-- Demon Slayer Moonlit Shrine & Swordsman Character Background -->
   <div class="ds-backdrop"></div>
   <div class="ds-haori-grid"></div>
@@ -535,7 +538,7 @@
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <button onclick="toggleDemonSlayerAudio()" id="bgmToggleBtn" class="btn btn-dark btn-sm" title="Toggle Demon Slayer Theme Music">BGM: ON</button>
+        <button onclick="toggleBgSong()" id="bgmToggleBtn" class="btn btn-dark btn-sm" title="Toggle Background Song">BGM: ON</button>
         <button onclick="cycleAnimeTheme()" id="themeChipBtn" class="btn btn-purple btn-sm" title="Switch Breathing Style">Breathing: Hinokami</button>
         <button id="ownerTabBtn" onclick="toggleOwnerPanel()" class="btn btn-amber btn-sm hidden">Hashira Panel</button>
         <button onclick="handleLogout()" class="btn btn-red btn-sm">Logout</button>
@@ -586,9 +589,7 @@
         <input id="entryFile" type="text" value="main.py" placeholder="main.py or -m userbot" class="mono" />
         <input id="botFiles" type="file" multiple required style="padding:9px;font-size:13px;" />
         <button type="submit" id="deployBtn" class="btn btn-primary">Ignite & Open Terminal</button>
-        <textarea id="envVars" rows="2" placeholder="Optional .env variables (API_ID=12345
-API_HASH=abcdef
-STRING_SESSION=...)" class="mono full-span"></textarea>
+        <textarea id="envVars" rows="2" placeholder="Optional .env variables (API_ID=12345&#10;API_HASH=abcdef&#10;STRING_SESSION=...)" class="mono full-span"></textarea>
       </form>
     </section>
 
@@ -742,125 +743,30 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
   </div>
 
   <script>
-    // --- DEMON SLAYER SMOOTH AMBIENT THEME MUSIC ENGINE (GURENGE & KAMADO TANJIRO NO UTA) ---
-    const DemonSlayerBGM = (() => {
-      let audioCtx = null;
-      let masterGain = null;
-      let isPlaying = false;
+    // --- SMOOTH BACKGROUND SONG PLAYER (/static/bgm.mp3) ---
+    const BgSongController = (() => {
       let isMuted = localStorage.getItem('siduser_ds_bgm_muted') === '1';
-      let noteTimer = null;
-      let stepIndex = 0;
 
-      // Smooth Koto / Music-Box Melody (Kamado Tanjiro no Uta + Gurenge motif)
-      const MELODY = [
-        // Kamado Tanjiro no Uta gentle phrase
-        { f: 587.33, d: 0.55 }, // D5
-        { f: 659.25, d: 0.55 }, // E5
-        { f: 739.99, d: 0.75 }, // F#5
-        { f: 880.00, d: 0.75 }, // A5
-        { f: 739.99, d: 0.55 }, // F#5
-        { f: 659.25, d: 0.55 }, // E5
-        { f: 587.33, d: 0.95 }, // D5
-        { f: 493.88, d: 0.55 }, // B4
-        { f: 587.33, d: 0.55 }, // D5
-        { f: 659.25, d: 1.10 }, // E5
-        { f: 0,      d: 0.45 }, // Rest
-        // Gurenge melodic phrase
-        { f: 329.63, d: 0.42 }, // E4
-        { f: 392.00, d: 0.42 }, // G4
-        { f: 440.00, d: 0.42 }, // A4
-        { f: 493.88, d: 0.70 }, // B4
-        { f: 440.00, d: 0.42 }, // A4
-        { f: 392.00, d: 0.42 }, // G4
-        { f: 329.63, d: 0.85 }, // E4
-        { f: 493.88, d: 0.45 }, // B4
-        { f: 587.33, d: 0.45 }, // D5
-        { f: 659.25, d: 0.75 }, // E5
-        { f: 587.33, d: 0.45 }, // D5
-        { f: 493.88, d: 0.45 }, // B4
-        { f: 440.00, d: 0.55 }, // A4
-        { f: 392.00, d: 0.55 }, // G4
-        { f: 440.00, d: 0.55 }, // A4
-        { f: 493.88, d: 1.15 }, // B4
-        { f: 0,      d: 0.65 }  // Rest
-      ];
+      function getAudio() {
+        return document.getElementById('bgSongAudio');
+      }
 
       function updateBtnLabel() {
         const btn = document.getElementById('bgmToggleBtn');
         if (btn) btn.innerText = isMuted ? 'BGM: OFF' : 'BGM: ON';
       }
 
-      function playPluckNote(freq, duration) {
-        if (!audioCtx || !masterGain || freq <= 0) return;
-        const now = audioCtx.currentTime;
-
-        // Soft koto-piano harmonic blend
-        const osc1 = audioCtx.createOscillator();
-        const osc2 = audioCtx.createOscillator();
-        const filter = audioCtx.createBiquadFilter();
-        const env = audioCtx.createGain();
-
-        osc1.type = 'sine';
-        osc2.type = 'triangle';
-        osc1.frequency.setValueAtTime(freq, now);
-        osc2.frequency.setValueAtTime(freq * 2, now); // Gentle octave shimmer
-
-        const harmonicGain = audioCtx.createGain();
-        harmonicGain.gain.setValueAtTime(0.18, now);
-
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(1100, now);
-        filter.frequency.exponentialRampToValueAtTime(420, now + duration + 0.6);
-
-        // Smooth attack & long warm release
-        env.gain.setValueAtTime(0.0001, now);
-        env.gain.linearRampToValueAtTime(0.22, now + 0.06);
-        env.gain.exponentialRampToValueAtTime(0.0008, now + duration + 0.85);
-
-        osc1.connect(filter);
-        osc2.connect(harmonicGain);
-        harmonicGain.connect(filter);
-        filter.connect(env);
-        env.connect(masterGain);
-
-        osc1.start(now);
-        osc2.start(now);
-        osc1.stop(now + duration + 0.9);
-        osc2.stop(now + duration + 0.9);
-      }
-
-      function scheduleNext() {
-        if (!isPlaying || isMuted) return;
-        const note = MELODY[stepIndex % MELODY.length];
-        stepIndex++;
-        playPluckNote(note.f, note.d);
-        noteTimer = setTimeout(scheduleNext, note.d * 1000);
-      }
-
       function start() {
         updateBtnLabel();
-        if (isMuted) return;
-
-        if (!audioCtx) {
-          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-          if (!AudioContextClass) return;
-          audioCtx = new AudioContextClass();
-          masterGain = audioCtx.createGain();
-          // Normal, smooth, comfortable background volume
-          masterGain.gain.setValueAtTime(0.24, audioCtx.currentTime);
-          masterGain.connect(audioCtx.destination);
+        const audio = getAudio();
+        if (!audio) return;
+        audio.volume = 0.28; // Normal smooth background volume
+        if (isMuted) {
+          audio.pause();
+          return;
         }
-
-        if (audioCtx.state === 'suspended') {
-          audioCtx.resume().then(() => {
-            if (!isPlaying && !isMuted) {
-              isPlaying = true;
-              scheduleNext();
-            }
-          }).catch(() => {});
-        } else if (!isPlaying) {
-          isPlaying = true;
-          scheduleNext();
+        if (audio.paused) {
+          audio.play().catch(() => {});
         }
       }
 
@@ -868,28 +774,29 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
         isMuted = !isMuted;
         localStorage.setItem('siduser_ds_bgm_muted', isMuted ? '1' : '0');
         updateBtnLabel();
+        const audio = getAudio();
+        if (!audio) return;
         if (isMuted) {
-          isPlaying = false;
-          clearTimeout(noteTimer);
+          audio.pause();
         } else {
-          start();
+          audio.volume = 0.28;
+          audio.play().catch(() => {});
         }
       }
 
       return { start, toggle, updateBtnLabel };
     })();
 
-    function toggleDemonSlayerAudio() {
-      DemonSlayerBGM.toggle();
+    function toggleBgSong() {
+      BgSongController.toggle();
     }
 
-    // Attempt immediate start on page open + unlock seamlessly on first user interaction
     window.addEventListener('DOMContentLoaded', () => {
-      DemonSlayerBGM.updateBtnLabel();
-      DemonSlayerBGM.start();
+      BgSongController.updateBtnLabel();
+      BgSongController.start();
     });
     ['pointerdown', 'keydown', 'touchstart'].forEach(evt => {
-      window.addEventListener(evt, () => DemonSlayerBGM.start(), { once: true, passive: true });
+      window.addEventListener(evt, () => BgSongController.start(), { once: true, passive: true });
     });
 
     // Demon Slayer Breathing Style Switcher
@@ -1164,7 +1071,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
 
     async function handleLogin(e) {
       e.preventDefault();
-      DemonSlayerBGM.start();
+      BgSongController.start();
       const btn = document.getElementById('loginBtn');
       btn.disabled = true;
       btn.innerText = 'Concentrating...';
