@@ -8,6 +8,7 @@ import time
 import uuid
 import shlex
 import shutil
+import signal
 import zipfile
 import subprocess
 import threading
@@ -18,6 +19,13 @@ from werkzeug.utils import secure_filename
 from flask import Flask, render_template, request, jsonify, session, send_file
 from flask_socketio import SocketIO
 import config
+
+try:
+    import pty
+    import termios
+    HAS_PTY = True
+except ImportError:
+    HAS_PTY = False
 
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
@@ -52,7 +60,8 @@ DEFAULT_DATA = {
 
 db_lock = threading.RLock()
 RUNNING_PROCS = {}
-PROC_HANDLES = {}  # Cached psutil.Process handles for non-blocking accurate CPU%
+PROC_HANDLES = {}
+BOT_TERMINALS = {}  # bot_id -> {"type": "pty"|"pipe", "fd": int|None, "proc": Popen}
 
 
 # --- ATOMIC JSON DATABASE ENGINE ---
@@ -137,76 +146,118 @@ IMPORT_MAP = {
 }
 
 
-def auto_install_requirements(bot_dir, log_path):
+def emit_log_line(bot_id, log_path, line):
+    with open(log_path, "a", encoding="utf-8") as log:
+        log.write(line)
+        log.flush()
+    socketio.emit("bot_terminal", {"bot_id": bot_id, "chunk": line})
+
+
+def auto_install_requirements(bot_id, bot_dir, log_path):
     mgmt = read_json("management")
     if not mgmt.get("auto_install_deps", True):
         return
 
-    with open(log_path, "a", encoding="utf-8") as log:
-        log.write(f"[{datetime.now().strftime('%H:%M:%S')}] Scanning userbot dependencies...\n")
-        log.flush()
+    emit_log_line(bot_id, log_path, f"[{datetime.now().strftime('%H:%M:%S')}] Scanning userbot dependencies...\n")
 
-        for root, _, files in os.walk(bot_dir):
-            if "requirements.txt" in files:
-                req_path = os.path.join(root, "requirements.txt")
-                log.write(f"[PIP] Installing {os.path.relpath(req_path, bot_dir)}...\n")
-                log.flush()
+    for root, _, files in os.walk(bot_dir):
+        if "requirements.txt" in files:
+            req_path = os.path.join(root, "requirements.txt")
+            emit_log_line(bot_id, log_path, f"[PIP] Installing {os.path.relpath(req_path, bot_dir)}...\n")
+            with open(log_path, "a", encoding="utf-8") as log:
                 subprocess.run(
                     [sys.executable, "-m", "pip", "install", "-r", req_path, "--quiet"],
                     stdout=log, stderr=log
                 )
 
-        local_modules = set()
-        detected_pkgs = set()
+    local_modules = set()
+    detected_pkgs = set()
 
-        for root, dirs, files in os.walk(bot_dir):
-            for file in files:
-                if file.endswith(".py"):
-                    local_modules.add(file[:-3])
-            for d in dirs:
-                local_modules.add(d)
+    for root, dirs, files in os.walk(bot_dir):
+        for file in files:
+            if file.endswith(".py"):
+                local_modules.add(file[:-3])
+        for d in dirs:
+            local_modules.add(d)
 
-        for root, _, files in os.walk(bot_dir):
-            for file in files:
-                if file.endswith(".py"):
-                    file_path = os.path.join(root, file)
-                    source = ""
-                    try:
-                        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                            source = f.read()
-                        tree = ast.parse(source, filename=file)
-                        for node in ast.walk(tree):
-                            if isinstance(node, ast.Import):
-                                for alias in node.names:
-                                    top = alias.name.split(".")[0]
-                                    if top not in STDLIB_MODULES and top not in local_modules:
-                                        detected_pkgs.add(IMPORT_MAP.get(top, top))
-                            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-                                top = node.module.split(".")[0]
+    for root, _, files in os.walk(bot_dir):
+        for file in files:
+            if file.endswith(".py"):
+                file_path = os.path.join(root, file)
+                source = ""
+                try:
+                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                        source = f.read()
+                    tree = ast.parse(source, filename=file)
+                    for node in ast.walk(tree):
+                        if isinstance(node, ast.Import):
+                            for alias in node.names:
+                                top = alias.name.split(".")[0]
                                 if top not in STDLIB_MODULES and top not in local_modules:
                                     detected_pkgs.add(IMPORT_MAP.get(top, top))
-                    except Exception:
-                        matches = re.findall(r"^\s*(?:import|from)\s+([a-zA-Z0-9_]+)", source, re.MULTILINE)
-                        for mod in matches:
-                            if mod not in STDLIB_MODULES and mod not in local_modules:
-                                detected_pkgs.add(IMPORT_MAP.get(mod, mod))
+                        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                            top = node.module.split(".")[0]
+                            if top not in STDLIB_MODULES and top not in local_modules:
+                                detected_pkgs.add(IMPORT_MAP.get(top, top))
+                except Exception:
+                    matches = re.findall(r"^\s*(?:import|from)\s+([a-zA-Z0-9_]+)", source, re.MULTILINE)
+                    for mod in matches:
+                        if mod not in STDLIB_MODULES and mod not in local_modules:
+                            detected_pkgs.add(IMPORT_MAP.get(mod, mod))
 
-        for pkg in sorted(detected_pkgs):
-            try:
-                __import__(pkg.lower().replace("-", "_"))
-            except ImportError:
-                log.write(f"[AUTO-PIP] Installing missing module: {pkg}...\n")
-                log.flush()
+    for pkg in sorted(detected_pkgs):
+        try:
+            __import__(pkg.lower().replace("-", "_"))
+        except ImportError:
+            emit_log_line(bot_id, log_path, f"[AUTO-PIP] Installing missing module: {pkg}...\n")
+            with open(log_path, "a", encoding="utf-8") as log:
                 subprocess.run(
                     [sys.executable, "-m", "pip", "install", pkg, "--quiet"],
                     stdout=log, stderr=log
                 )
 
-        log.write("[SYSTEM] Dependencies verified. Starting process...\n")
-        log.flush()
+    emit_log_line(bot_id, log_path, "[SYSTEM] Dependencies verified. Starting interactive terminal...\n")
 
 
-# --- MULTI-PROCESS LAUNCHER & AUTO-RECOVERY ---
+# --- REAL-TIME PTY / PIPE STREAM READER ---
+def stream_pty_reader(bot_id, master_fd, log_path):
+    try:
+        with open(log_path, "a", encoding="utf-8", errors="replace") as log_fp:
+            while True:
+                try:
+                    data = os.read(master_fd, 1024)
+                    if not data:
+                        break
+                    text = data.decode("utf-8", errors="replace").replace("\r\n", "\n")
+                    log_fp.write(text)
+                    log_fp.flush()
+                    socketio.emit("bot_terminal", {"bot_id": bot_id, "chunk": text})
+                except OSError:
+                    break
+    finally:
+        try:
+            os.close(master_fd)
+        except OSError:
+            pass
+        BOT_TERMINALS.pop(bot_id, None)
+
+
+def stream_pipe_reader(bot_id, pipe_stream, log_path):
+    try:
+        with open(log_path, "a", encoding="utf-8", errors="replace") as log_fp:
+            while True:
+                data = pipe_stream.read(256)
+                if not data:
+                    break
+                text = data.decode("utf-8", errors="replace").replace("\r\n", "\n")
+                log_fp.write(text)
+                log_fp.flush()
+                socketio.emit("bot_terminal", {"bot_id": bot_id, "chunk": text})
+    finally:
+        BOT_TERMINALS.pop(bot_id, None)
+
+
+# --- MULTI-PROCESS LAUNCHER WITH INTERACTIVE PTY (NO EOF) ---
 def launch_bot_process(bot_id):
     db = read_json("database")
     bot = db["bots"].get(bot_id)
@@ -222,10 +273,11 @@ def launch_bot_process(bot_id):
         write_json("database", db)
         return
 
-    auto_install_requirements(bot_dir, log_path)
+    auto_install_requirements(bot_id, bot_dir, log_path)
 
     proc_env = os.environ.copy()
     proc_env["PYTHONUNBUFFERED"] = "1"
+    proc_env["TERM"] = "xterm"
     env_file = os.path.join(bot_dir, ".env")
     if os.path.exists(env_file):
         with open(env_file, "r", encoding="utf-8") as ef:
@@ -240,14 +292,41 @@ def launch_bot_process(bot_id):
     else:
         cmd = [sys.executable, "-u", run_target]
 
-    log_fp = open(log_path, "a", encoding="utf-8")
-    proc = subprocess.Popen(
-        cmd,
-        cwd=bot_dir,
-        stdout=log_fp,
-        stderr=log_fp,
-        env=proc_env
-    )
+    if HAS_PTY:
+        master_fd, slave_fd = pty.openpty()
+        try:
+            attrs = termios.tcgetattr(slave_fd)
+            attrs[3] = attrs[3] & ~termios.ECHO  # Prevent raw 2FA password echo into logs
+            termios.tcsetattr(slave_fd, termios.TCSANOW, attrs)
+        except Exception:
+            pass
+
+        proc = subprocess.Popen(
+            cmd,
+            cwd=bot_dir,
+            stdin=slave_fd,
+            stdout=slave_fd,
+            stderr=slave_fd,
+            close_fds=True,
+            start_new_session=True,
+            env=proc_env
+        )
+        os.close(slave_fd)
+        BOT_TERMINALS[bot_id] = {"type": "pty", "fd": master_fd, "proc": proc}
+        threading.Thread(target=stream_pty_reader, args=(bot_id, master_fd, log_path), daemon=True).start()
+    else:
+        proc = subprocess.Popen(
+            cmd,
+            cwd=bot_dir,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            bufsize=0,
+            env=proc_env
+        )
+        BOT_TERMINALS[bot_id] = {"type": "pipe", "fd": None, "proc": proc}
+        threading.Thread(target=stream_pipe_reader, args=(bot_id, proc.stdout, log_path), daemon=True).start()
+
     RUNNING_PROCS[bot_id] = proc
 
     db = read_json("database")
@@ -267,7 +346,7 @@ def recover_running_bots():
 
 # --- NON-BLOCKING REAL-TIME TELEMETRY WORKER ---
 def telemetry_worker():
-    psutil.cpu_percent(interval=None)  # Prime non-blocking CPU counter
+    psutil.cpu_percent(interval=None)
     perf = read_json("performance")
     history_buf = deque(perf.get("logs", [])[-40:], maxlen=40)
     peaks = perf.get("system_peaks", {"cpu": 0.0, "ram": 0.0, "max_concurrent_bots": 0})
@@ -289,7 +368,7 @@ def telemetry_worker():
                         proc = PROC_HANDLES.get(pid)
                         if proc is None:
                             proc = psutil.Process(pid)
-                            proc.cpu_percent(interval=None)  # Prime per-process counter
+                            proc.cpu_percent(interval=None)
                             PROC_HANDLES[pid] = proc
 
                         if proc.status() == psutil.STATUS_ZOMBIE:
@@ -344,7 +423,6 @@ def telemetry_worker():
                 "active_bots": active_count
             })
 
-            # Flush performance.json to disk every 30s (15 ticks) to eliminate disk I/O lag
             tick_counter += 1
             if tick_counter >= 15:
                 write_json("performance", {"logs": list(history_buf), "system_peaks": peaks})
@@ -362,7 +440,7 @@ def telemetry_worker():
         time.sleep(2)
 
 
-# --- ROUTES: FAST HEALTHCHECK & USER-ID-ONLY AUTH ---
+# --- ROUTES: HEALTH & USER-ID-ONLY AUTH ---
 @app.route("/health")
 def health():
     return jsonify({"ok": True, "uptime": int(time.time() - START_TIME)})
@@ -434,7 +512,7 @@ def me():
     })
 
 
-# --- ROUTES: ISOLATED USERBOT HOSTING & SETTINGS ---
+# --- ROUTES: DEPLOY, INTERACTIVE STDIN (OTP / 2FA), LOGS & SETTINGS ---
 @app.route("/api/deploy", methods=["POST"])
 def deploy_bot():
     user_id = session.get("user_id")
@@ -518,7 +596,55 @@ def deploy_bot():
     write_json("database", db)
 
     threading.Thread(target=launch_bot_process, args=(bot_id,), daemon=True).start()
-    return jsonify({"ok": True, "bot_id": bot_id})
+    return jsonify({"ok": True, "bot_id": bot_id, "bot_name": bot_name})
+
+
+@app.route("/api/bot/<bot_id>/stdin", methods=["POST"])
+def send_bot_stdin(bot_id):
+    """Sends real-time interactive input (Phone, OTP, 2FA Password, or Ctrl+C) to running userbot."""
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    db = read_json("database")
+    bot = db["bots"].get(bot_id)
+    if not bot or (bot["owner_id"] != user_id and not session.get("is_owner")):
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+
+    term = BOT_TERMINALS.get(bot_id)
+    if not term:
+        return jsonify({"ok": False, "error": "Userbot terminal is not currently running. Start or Restart it first."}), 400
+
+    data = request.json or {}
+    if data.get("ctrl_c"):
+        try:
+            if term["type"] == "pty" and term["fd"] is not None:
+                os.write(term["fd"], b"\x03")
+            elif term.get("proc"):
+                term["proc"].send_signal(signal.SIGINT)
+            emit_log_line(bot_id, bot["log_path"], "\n^C\n")
+            return jsonify({"ok": True})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 500
+
+    user_input = str(data.get("input", ""))
+    is_secret = bool(data.get("is_secret", False))
+    payload = (user_input + "\n").encode("utf-8")
+
+    try:
+        if term["type"] == "pty" and term["fd"] is not None:
+            os.write(term["fd"], payload)
+        elif term.get("proc") and term["proc"].stdin:
+            term["proc"].stdin.write(payload)
+            term["proc"].stdin.flush()
+        else:
+            return jsonify({"ok": False, "error": "Stdin pipe closed."}), 400
+
+        masked_echo = "••••••••" if is_secret else user_input
+        emit_log_line(bot_id, bot["log_path"], f"\n> {masked_echo}\n")
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"Failed to send input: {e}"}), 500
 
 
 @app.route("/api/my-bots")
@@ -582,9 +708,9 @@ def get_bot_logs(bot_id):
 
     if os.path.exists(bot["log_path"]):
         with open(bot["log_path"], "r", encoding="utf-8", errors="ignore") as f:
-            lines = f.readlines()[-150:]
-        return jsonify({"ok": True, "logs": "".join(lines)})
-    return jsonify({"ok": True, "logs": "Preparing environment & logs..."})
+            lines = f.readlines()[-180:]
+        return jsonify({"ok": True, "logs": "".join(lines), "bot_name": bot["bot_name"]})
+    return jsonify({"ok": True, "logs": "Terminal ready. Waiting for output...\n", "bot_name": bot["bot_name"]})
 
 
 @app.route("/api/bot/<bot_id>/action", methods=["POST"])
@@ -602,6 +728,12 @@ def bot_action(bot_id):
 
     pid = bot.get("pid")
     if action in ("stop", "restart", "terminate"):
+        term = BOT_TERMINALS.pop(bot_id, None)
+        if term and term.get("type") == "pty" and term.get("fd") is not None:
+            try:
+                os.close(term["fd"])
+            except OSError:
+                pass
         if pid and psutil.pid_exists(pid):
             try:
                 parent = psutil.Process(pid)
