@@ -2,15 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>SidUser Cloud — Fast Telegram Userbot Hoster</title>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" defer></script>
   <style>
     :root {
       --bg: #060812;
-      --glass: rgba(15, 20, 40, 0.72);
-      --card: rgba(22, 29, 55, 0.78);
-      --border: rgba(139, 92, 246, 0.3);
+      --glass: rgba(14, 19, 38, 0.72);
+      --card: rgba(20, 27, 52, 0.78);
+      --border: rgba(139, 92, 246, 0.34);
       --cyan: #22d3ee;
       --purple: #a855f7;
       --pink: #f472b6;
@@ -19,21 +19,72 @@
       --amber: #fbbf24;
       --text: #f1f5f9;
       --muted: #94a3b8;
+      --anime-img: url('https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=1280&q=75');
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body[data-theme="sakura"] {
+      --cyan: #f472b6;
+      --purple: #c084fc;
+      --border: rgba(244, 114, 182, 0.38);
+      --anime-img: url('https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=1280&q=75');
+    }
+
+    body[data-theme="shinobi"] {
+      --cyan: #34d399;
+      --purple: #38bdf8;
+      --border: rgba(52, 211, 153, 0.36);
+      --anime-img: url('https://images.unsplash.com/photo-1542051841857-5f90071e7989?auto=format&fit=crop&w=1280&q=75');
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html { scroll-behavior: smooth; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: radial-gradient(circle at 15% 15%, #191038 0%, #060812 55%, #081826 100%);
+      background: #060812;
       color: var(--text);
       min-height: 100vh;
       overflow-x: hidden;
+      padding-bottom: calc(88px + env(safe-area-inset-bottom));
+    }
+
+    /* Non-Blocking Animated Anime Wallpaper Layer */
+    .anime-wallpaper {
+      position: fixed;
+      inset: 0;
+      z-index: -3;
+      background-image:
+        linear-gradient(145deg, rgba(6, 8, 18, 0.86), rgba(16, 10, 36, 0.84)),
+        var(--anime-img);
+      background-size: cover;
+      background-position: center;
+      animation: animeKenBurns 26s ease-in-out infinite alternate;
+      transition: background-image 0.6s ease;
+    }
+
+    @keyframes animeKenBurns {
+      0% { transform: scale(1) translate3d(0, 0, 0); }
+      100% { transform: scale(1.08) translate3d(-1.5%, -1%, 0); }
+    }
+
+    @keyframes animeFloat {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-6px); }
+    }
+
+    @keyframes pulseAura {
+      0%, 100% { box-shadow: 0 0 18px rgba(34, 211, 238, 0.25), 0 0 32px rgba(168, 85, 247, 0.2); }
+      50% { box-shadow: 0 0 26px rgba(168, 85, 247, 0.45), 0 0 44px rgba(34, 211, 238, 0.3); }
+    }
+
+    @keyframes slideUpFade {
+      from { opacity: 0; transform: translateY(14px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     #bgCanvas {
       position: fixed;
       inset: 0;
-      z-index: -1;
+      z-index: -2;
       pointer-events: none;
     }
 
@@ -42,121 +93,202 @@
 
     .glass {
       background: var(--glass);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       border: 1px solid var(--border);
-      border-radius: 18px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+      border-radius: 20px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.48);
+      animation: slideUpFade 0.45s ease both;
     }
 
     .card {
       background: var(--card);
-      border: 1px solid rgba(56, 189, 248, 0.25);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(56, 189, 248, 0.26);
       border-radius: 16px;
-      padding: 18px;
-      transition: transform 0.2s ease, border-color 0.2s ease;
+      padding: 16px;
+      transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
     }
-    .card:hover { transform: translateY(-3px); border-color: var(--purple); }
+    .card:hover {
+      transform: translateY(-3px);
+      border-color: var(--purple);
+      box-shadow: 0 10px 26px rgba(168, 85, 247, 0.24);
+    }
 
     input, textarea {
       width: 100%;
-      background: rgba(6, 10, 24, 0.85);
+      background: rgba(6, 10, 24, 0.86);
       border: 1px solid #334155;
       color: var(--text);
       padding: 12px 14px;
       border-radius: 12px;
-      font-size: 14px;
+      font-size: 16px;
       outline: none;
-      transition: border-color 0.2s;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
-    input:focus, textarea:focus { border-color: var(--cyan); }
+    input:focus, textarea:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.14);
+    }
 
     .btn {
       border: none;
       cursor: pointer;
       font-weight: 600;
       border-radius: 12px;
-      padding: 11px 18px;
+      padding: 11px 16px;
       font-size: 13px;
-      transition: opacity 0.2s, transform 0.15s;
+      transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 6px;
       text-decoration: none;
     }
-    .btn:hover { opacity: 0.92; }
-    .btn:active { transform: scale(0.98); }
-    .btn-primary { background: linear-gradient(135deg, var(--cyan), var(--purple)); color: #fff; }
-    .btn-sm { padding: 7px 12px; font-size: 12px; border-radius: 9px; }
-    .btn-dark { background: #1e293b; color: var(--cyan); }
-    .btn-purple { background: rgba(168, 85, 247, 0.2); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.35); }
+    .btn:hover { opacity: 0.93; }
+    .btn:active { transform: scale(0.96); }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      color: #fff;
+      box-shadow: 0 6px 18px rgba(168, 85, 247, 0.3);
+    }
+    .btn-sm { padding: 7px 12px; font-size: 12px; border-radius: 10px; }
+    .btn-dark { background: rgba(30, 41, 59, 0.85); color: var(--cyan); border: 1px solid rgba(56, 189, 248, 0.2); }
+    .btn-purple { background: rgba(168, 85, 247, 0.2); color: #e9d5ff; border: 1px solid rgba(168, 85, 247, 0.35); }
     .btn-amber { background: rgba(251, 191, 36, 0.2); color: var(--amber); border: 1px solid rgba(251, 191, 36, 0.35); }
     .btn-red { background: rgba(251, 113, 133, 0.2); color: var(--red); border: 1px solid rgba(251, 113, 133, 0.35); }
     .btn-green { background: var(--green); color: #04130d; font-weight: 700; }
+
+    /* Anime Avatar Frames */
+    .anime-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 16px;
+      object-fit: cover;
+      border: 2px solid var(--cyan);
+      animation: animeFloat 4s ease-in-out infinite, pulseAura 3.5s ease-in-out infinite;
+    }
+
+    .anime-hero-avatar {
+      width: 78px;
+      height: 78px;
+      margin: 0 auto 14px;
+      border-radius: 22px;
+      object-fit: cover;
+      border: 2px solid var(--cyan);
+      display: block;
+      animation: animeFloat 4s ease-in-out infinite, pulseAura 3.5s ease-in-out infinite;
+    }
 
     /* Login Overlay */
     .modal-overlay {
       position: fixed;
       inset: 0;
-      z-index: 50;
+      z-index: 60;
       background: rgba(4, 6, 15, 0.86);
-      backdrop-filter: blur(10px);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 16px;
     }
-    .login-box { max-width: 400px; width: 100%; padding: 30px; text-align: center; }
-    .anime-emblem {
-      width: 68px;
-      height: 68px;
-      margin: 0 auto 14px;
-      border-radius: 20px;
-      background: linear-gradient(135deg, rgba(34,211,238,0.2), rgba(168,85,247,0.3));
-      border: 1.5px solid var(--cyan);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 0 24px rgba(168, 85, 247, 0.35);
-    }
+    .login-box { max-width: 400px; width: 100%; padding: 28px 24px; text-align: center; }
 
     /* Layout Grid */
-    .container { max-width: 1220px; margin: 0 auto; padding: 20px 16px; display: flex; flex-direction: column; gap: 20px; }
-    .navbar { padding: 16px 22px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
-    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
-    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
-    .deploy-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+    .container { max-width: 1220px; margin: 0 auto; padding: 14px 12px; display: flex; flex-direction: column; gap: 16px; }
+    .navbar { padding: 14px 18px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 16px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; }
+    .deploy-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
     .full-span { grid-column: 1 / -1; }
 
+    @media (max-width: 768px) {
+      .telemetry-span { grid-column: span 1 !important; }
+      .navbar { padding: 12px 14px; }
+    }
+
     .badge { padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
-    .badge-run { background: rgba(52, 211, 153, 0.18); color: var(--green); }
+    .badge-run { background: rgba(52, 211, 153, 0.18); color: var(--green); box-shadow: 0 0 12px rgba(52, 211, 153, 0.25); }
     .badge-wait { background: rgba(251, 191, 36, 0.18); color: var(--amber); }
 
     table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
-    th, td { padding: 10px 12px; border-bottom: 1px solid rgba(148, 163, 184, 0.15); }
+    th, td { padding: 10px 10px; border-bottom: 1px solid rgba(148, 163, 184, 0.15); }
     th { color: var(--muted); font-weight: 600; }
     .table-wrap { overflow-x: auto; }
+
+    /* Mobile Glassmorphism Bottom Navigation Bar */
+    .mobile-glass-nav {
+      position: fixed;
+      bottom: calc(12px + env(safe-area-inset-bottom));
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 45;
+      width: min(94vw, 520px);
+      background: rgba(13, 18, 38, 0.78);
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
+      border: 1px solid rgba(168, 85, 247, 0.42);
+      border-radius: 24px;
+      padding: 6px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      box-shadow: 0 12px 34px rgba(0, 0, 0, 0.65), 0 0 22px rgba(34, 211, 238, 0.18);
+    }
+
+    .nav-pill {
+      flex: 1;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--muted);
+      border-radius: 18px;
+      padding: 8px 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.22s ease;
+    }
+
+    .nav-pill svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      transition: transform 0.22s ease;
+    }
+
+    .nav-pill:hover, .nav-pill.active {
+      color: #fff;
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.24), rgba(168, 85, 247, 0.28));
+      border-color: rgba(34, 211, 238, 0.42);
+      box-shadow: 0 4px 14px rgba(34, 211, 238, 0.2);
+    }
+
+    .nav-pill.active svg {
+      transform: translateY(-1px) scale(1.08);
+      stroke: var(--cyan);
+    }
   </style>
 </head>
-<body>
+<body data-theme="cyber">
+  <div class="anime-wallpaper"></div>
   <canvas id="bgCanvas"></canvas>
 
   <!-- USER ID ONLY LOGIN GATE -->
   <div id="loginModal" class="modal-overlay">
     <div class="glass login-box">
-      <div class="anime-emblem">
-        <!-- Lightweight Inline Anime Cyber-Crystal SVG -->
-        <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="1.8">
-          <polygon points="12 2 19 8.5 16.5 21 7.5 21 5 8.5 12 2" fill="rgba(168,85,247,0.25)"/>
-          <circle cx="12" cy="12" r="3" stroke="#f472b6"/>
-        </svg>
-      </div>
-      <h1 style="font-size:22px;font-weight:800;background:linear-gradient(90deg,#22d3ee,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">SidUser Cloud</h1>
+      <img src="https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&w=240&q=80" alt="Anime Emblem" class="anime-hero-avatar" loading="lazy" />
+      <h1 style="font-size:23px;font-weight:800;background:linear-gradient(90deg,var(--cyan),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">SidUser Cloud</h1>
       <p style="font-size:12px;color:var(--muted);margin:6px 0 20px;">Enter your Telegram User ID to access your hosted userbots</p>
 
       <form onsubmit="handleLogin(event)" style="display:flex;flex-direction:column;gap:12px;">
-        <input id="loginUserId" type="text" inputmode="numeric" pattern="[0-9]+" required autofocus placeholder="Telegram User ID (e.g. 123456789)" class="mono" style="text-align:center;font-size:16px;" />
+        <input id="loginUserId" type="text" inputmode="numeric" pattern="[0-9]+" required autofocus placeholder="Telegram User ID (e.g. 123456789)" class="mono" style="text-align:center;" />
         <input id="loginOwnerKey" type="password" placeholder="Owner Secret Key" class="hidden" />
         <button type="submit" id="loginBtn" class="btn btn-primary" style="width:100%;padding:13px;font-size:14px;">Open Dashboard</button>
       </form>
@@ -170,78 +302,84 @@
   <!-- MAIN DASHBOARD -->
   <div id="dashboardApp" class="container hidden">
     <header class="glass navbar">
-      <div>
-        <h2 style="font-size:19px;font-weight:800;">SidUser <span style="color:var(--cyan);">Hoster</span></h2>
-        <p style="font-size:12px;color:var(--muted);">User ID: <span id="navUserId" class="mono" style="color:var(--cyan);font-weight:700;"></span></p>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <img src="https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&w=160&q=80" alt="Anime Avatar" class="anime-avatar" loading="lazy" />
+        <div>
+          <h2 style="font-size:18px;font-weight:800;">SidUser <span style="color:var(--cyan);">Hoster</span></h2>
+          <p style="font-size:12px;color:var(--muted);">User ID: <span id="navUserId" class="mono" style="color:var(--cyan);font-weight:700;"></span></p>
+        </div>
       </div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button id="ownerTabBtn" onclick="toggleOwnerPanel()" class="btn btn-amber btn-sm hidden">Owner Control Suite</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button onclick="cycleAnimeTheme()" id="themeChipBtn" class="btn btn-purple btn-sm" title="Switch Anime Theme">Theme: Cyber</button>
+        <button id="ownerTabBtn" onclick="toggleOwnerPanel()" class="btn btn-amber btn-sm hidden">Owner</button>
         <button onclick="handleLogout()" class="btn btn-red btn-sm">Logout</button>
       </div>
     </header>
 
     <!-- Stats & Native Canvas Telemetry -->
-    <div class="grid-3">
-      <div class="glass" style="padding:20px;display:flex;flex-direction:column;justify-content:space-between;">
+    <div id="sec-stats" class="grid-3">
+      <div class="glass" style="padding:18px;display:flex;flex-direction:column;justify-content:space-between;">
         <div>
           <span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--cyan);font-weight:700;">Hosted On Your ID</span>
-          <div style="margin-top:10px;display:flex;align-items:baseline;gap:8px;">
-            <span id="userBotCount" style="font-size:36px;font-weight:800;">0</span>
+          <div style="margin-top:8px;display:flex;align-items:baseline;gap:8px;">
+            <span id="userBotCount" style="font-size:34px;font-weight:800;">0</span>
             <span style="font-size:12px;color:var(--muted);">/ <span id="userMaxBots">5</span> instances</span>
           </div>
           <p style="font-size:11px;color:var(--muted);margin-top:4px;">Active since: <span id="userJoinedAt"></span></p>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px;">
-          <div style="background:rgba(6,10,24,0.7);padding:10px;border-radius:12px;border:1px solid #1e293b;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
+          <div style="background:rgba(6,10,24,0.72);padding:10px;border-radius:12px;border:1px solid rgba(56,189,248,0.18);">
             <div style="font-size:11px;color:var(--muted);">Your CPU</div>
-            <div id="userTotalCpu" class="mono" style="font-size:16px;font-weight:700;color:var(--cyan);margin-top:2px;">0.0%</div>
+            <div id="userTotalCpu" class="mono" style="font-size:15px;font-weight:700;color:var(--cyan);margin-top:2px;">0.0%</div>
           </div>
-          <div style="background:rgba(6,10,24,0.7);padding:10px;border-radius:12px;border:1px solid #1e293b;">
+          <div style="background:rgba(6,10,24,0.72);padding:10px;border-radius:12px;border:1px solid rgba(168,85,247,0.18);">
             <div style="font-size:11px;color:var(--muted);">Your RAM</div>
-            <div id="userTotalRam" class="mono" style="font-size:16px;font-weight:700;color:var(--purple);margin-top:2px;">0 MB</div>
+            <div id="userTotalRam" class="mono" style="font-size:15px;font-weight:700;color:var(--purple);margin-top:2px;">0 MB</div>
           </div>
         </div>
       </div>
 
-      <div class="glass" style="padding:20px;grid-column:span 2;">
+      <div class="glass telemetry-span" style="padding:18px;grid-column:span 2;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
           <span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--purple);font-weight:700;">Live Server Performance</span>
-          <div class="mono" style="font-size:12px;display:flex;gap:14px;">
+          <div class="mono" style="font-size:12px;display:flex;gap:12px;">
             <span style="color:var(--cyan);">CPU: <b id="sysCpuVal">0.0%</b></span>
             <span style="color:var(--purple);">RAM: <b id="sysRamVal">0.0%</b></span>
           </div>
         </div>
-        <canvas id="telemetryChart" height="125" style="width:100%;display:block;"></canvas>
+        <canvas id="telemetryChart" height="120" style="width:100%;display:block;"></canvas>
       </div>
     </div>
 
     <!-- Deploy Form -->
-    <section class="glass" style="padding:22px;">
+    <section id="sec-deploy" class="glass" style="padding:20px;">
       <h3 style="font-size:16px;font-weight:700;margin-bottom:4px;">Deploy Userbot Files</h3>
       <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Supports <code style="color:var(--cyan);">.py</code>, <code style="color:var(--cyan);">.zip</code>, <code style="color:var(--cyan);">.session</code> & <code style="color:var(--cyan);">requirements.txt</code>. Auto-pip installs missing modules.</p>
       <form id="deployForm" onsubmit="deployUserbot(event)" class="deploy-grid">
         <input id="botName" type="text" required placeholder="Bot Name (e.g. MyUserbot)" />
         <input id="entryFile" type="text" value="main.py" placeholder="main.py or -m userbot" class="mono" />
-        <input id="botFiles" type="file" multiple required style="padding:9px;" />
+        <input id="botFiles" type="file" multiple required style="padding:9px;font-size:13px;" />
         <button type="submit" id="deployBtn" class="btn btn-primary">Launch Userbot</button>
-        <textarea id="envVars" rows="2" placeholder="Optional .env variables (API_ID=12345&#10;API_HASH=abcdef&#10;STRING_SESSION=...)" class="mono full-span"></textarea>
+        <textarea id="envVars" rows="2" placeholder="Optional .env variables (API_ID=12345
+API_HASH=abcdef
+STRING_SESSION=...)" class="mono full-span"></textarea>
       </form>
     </section>
 
     <!-- Isolated Userbots Grid -->
-    <section>
+    <section id="sec-bots">
       <h3 style="font-size:16px;font-weight:700;margin-bottom:12px;">Your Hosted Userbots</h3>
       <div id="myBotsGrid" class="grid-2"></div>
     </section>
 
     <!-- Owner Master Control Suite -->
-    <section id="ownerSection" class="glass hidden" style="padding:22px;border-color:rgba(251,191,36,0.5);display:flex;flex-direction:column;gap:18px;">
-      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;">
+    <section id="ownerSection" class="glass hidden" style="padding:20px;border-color:rgba(251,191,36,0.5);display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;">
         <div>
-          <h3 style="font-size:18px;font-weight:800;color:var(--amber);">Owner Master Control & JSON Export</h3>
+          <h3 style="font-size:17px;font-weight:800;color:var(--amber);">Owner Master Control & JSON Export</h3>
           <p style="font-size:12px;color:var(--muted);">View all User IDs, manage global settings, terminate sessions, or download JSON & userbot files.</p>
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
           <a href="/api/owner/download-json/database" class="btn btn-dark btn-sm">database.json</a>
           <a href="/api/owner/download-json/users" class="btn btn-dark btn-sm">users.json</a>
           <a href="/api/owner/download-json/performance" class="btn btn-dark btn-sm">performance.json</a>
@@ -262,7 +400,7 @@
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
           <span>Max Bots / ID</span>
           <div style="display:flex;gap:6px;">
-            <input id="maxBotsInput" type="number" min="1" max="50" class="mono" style="width:65px;padding:6px;text-align:center;" />
+            <input id="maxBotsInput" type="number" min="1" max="50" class="mono" style="width:65px;padding:6px;text-align:center;font-size:13px;" />
             <button onclick="saveMaxBots()" class="btn btn-primary btn-sm">Save</button>
           </div>
         </div>
@@ -284,11 +422,54 @@
         </table>
       </div>
     </section>
+
+    <!-- MOBILE GLASSMORPHISM NAVIGATION BAR -->
+    <nav class="mobile-glass-nav" aria-label="Mobile Navigation">
+      <button type="button" class="nav-pill active" data-target="sec-stats" onclick="navJump('sec-stats', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+        </svg>
+        <span>Stats</span>
+      </button>
+
+      <button type="button" class="nav-pill" data-target="sec-deploy" onclick="navJump('sec-deploy', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
+        </svg>
+        <span>Deploy</span>
+      </button>
+
+      <button type="button" class="nav-pill" data-target="sec-bots" onclick="navJump('sec-bots', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="16" rx="3"></rect>
+          <circle cx="9" cy="10" r="1.5"></circle>
+          <circle cx="15" cy="10" r="1.5"></circle>
+          <path d="M9 15h6"></path>
+        </svg>
+        <span>My Bots</span>
+      </button>
+
+      <button type="button" class="nav-pill" onclick="cycleAnimeTheme()">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+        </svg>
+        <span>Theme</span>
+      </button>
+
+      <button type="button" id="mobileOwnerNavBtn" class="nav-pill hidden" onclick="toggleOwnerPanel(); setActivePill(this);">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2l3 7 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"></path>
+        </svg>
+        <span>Owner</span>
+      </button>
+    </nav>
   </div>
 
   <!-- Live Logs Modal -->
   <div id="logModal" class="modal-overlay hidden">
-    <div class="glass" style="max-width:740px;width:100%;padding:22px;">
+    <div class="glass" style="max-width:740px;width:100%;padding:20px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
         <h4 style="color:var(--cyan);font-weight:700;">Live Runtime Logs</h4>
         <button onclick="document.getElementById('logModal').classList.add('hidden')" class="btn btn-dark btn-sm">Close</button>
@@ -299,7 +480,7 @@
 
   <!-- Settings Modal -->
   <div id="settingsModal" class="modal-overlay hidden">
-    <div class="glass" style="max-width:520px;width:100%;padding:22px;display:flex;flex-direction:column;gap:12px;">
+    <div class="glass" style="max-width:520px;width:100%;padding:20px;display:flex;flex-direction:column;gap:12px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <h4 style="color:var(--purple);font-weight:700;">Userbot Settings & .env</h4>
         <button onclick="document.getElementById('settingsModal').classList.add('hidden')" class="btn btn-dark btn-sm">Close</button>
@@ -316,7 +497,47 @@
   </div>
 
   <script>
-    // Lightweight Ambient Particle Canvas (24 particles, zero lag)
+    // Anime Theme Switcher (Cyber / Sakura / Shinobi)
+    const ANIME_THEMES = [
+      { id: 'cyber', label: 'Cyber' },
+      { id: 'sakura', label: 'Sakura' },
+      { id: 'shinobi', label: 'Shinobi' }
+    ];
+    let themeIdx = 0;
+
+    function applyAnimeTheme(themeId) {
+      document.body.setAttribute('data-theme', themeId);
+      localStorage.setItem('siduser_anime_theme', themeId);
+      const found = ANIME_THEMES.find(t => t.id === themeId) || ANIME_THEMES[0];
+      themeIdx = ANIME_THEMES.indexOf(found);
+      const chip = document.getElementById('themeChipBtn');
+      if (chip) chip.innerText = `Theme: ${found.label}`;
+    }
+
+    function cycleAnimeTheme() {
+      themeIdx = (themeIdx + 1) % ANIME_THEMES.length;
+      applyAnimeTheme(ANIME_THEMES[themeIdx].id);
+    }
+
+    const savedTheme = localStorage.getItem('siduser_anime_theme');
+    if (savedTheme) applyAnimeTheme(savedTheme);
+
+    // Mobile Glassmorphism Navigation Helper
+    function setActivePill(btn) {
+      document.querySelectorAll('.nav-pill').forEach(p => p.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+    }
+
+    function navJump(sectionId, btn) {
+      setActivePill(btn);
+      const el = document.getElementById(sectionId);
+      if (el) {
+        const top = el.getBoundingClientRect().top + window.scrollY - 14;
+        window.scrollTo({ top, behavior: 'smooth' });
+      }
+    }
+
+    // Lightweight Ambient Particle Canvas (Sakura / Neon Orbs)
     const bgCanvas = document.getElementById('bgCanvas');
     const bgCtx = bgCanvas.getContext('2d');
     let dots = [];
@@ -326,8 +547,8 @@
     for (let i = 0; i < 24; i++) {
       dots.push({
         x: Math.random() * bgCanvas.width, y: Math.random() * bgCanvas.height,
-        r: Math.random() * 2 + 1, dx: (Math.random() - 0.5) * 0.35, dy: (Math.random() - 0.5) * 0.35,
-        c: i % 2 === 0 ? 'rgba(34,211,238,0.35)' : 'rgba(168,85,247,0.35)'
+        r: Math.random() * 2.2 + 1, dx: (Math.random() - 0.5) * 0.4, dy: (Math.random() - 0.5) * 0.4,
+        c: i % 2 === 0 ? 'rgba(34,211,238,0.35)' : 'rgba(244,114,182,0.35)'
       });
     }
     function renderBg() {
@@ -357,7 +578,6 @@
       const w = rect.width, h = rect.height;
       ctx.clearRect(0, 0, w, h);
 
-      // Grid lines
       ctx.strokeStyle = 'rgba(255,255,255,0.06)';
       ctx.lineWidth = 1;
       for (let g = 1; g <= 3; g++) {
@@ -420,7 +640,10 @@
         document.getElementById('navUserId').innerText = data.user_id;
         document.getElementById('userJoinedAt').innerText = data.joined_at;
         document.getElementById('userMaxBots').innerText = data.max_bots;
-        if (data.is_owner) document.getElementById('ownerTabBtn').classList.remove('hidden');
+        if (data.is_owner) {
+          document.getElementById('ownerTabBtn').classList.remove('hidden');
+          document.getElementById('mobileOwnerNavBtn').classList.remove('hidden');
+        }
         loadMyBots();
         initSocket();
       }
@@ -567,7 +790,10 @@
     async function toggleOwnerPanel() {
       const sec = document.getElementById('ownerSection');
       sec.classList.toggle('hidden');
-      if (!sec.classList.contains('hidden')) loadOwnerOverview();
+      if (!sec.classList.contains('hidden')) {
+        await loadOwnerOverview();
+        sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     }
 
     async function loadOwnerOverview() {
