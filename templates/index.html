@@ -505,11 +505,13 @@
       <h1 style="font-size:23px;font-weight:800;background:linear-gradient(90deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">SidUser Corps</h1>
       <p style="font-size:12px;color:var(--muted);margin:6px 0 20px;">Enter your Telegram User ID to summon your hosted userbots</p>
 
-      <form onsubmit="handleLogin(event)" style="display:flex;flex-direction:column;gap:12px;">
+      <form id="loginForm" action="javascript:void(0);" onsubmit="return handleLogin(event);" style="display:flex;flex-direction:column;gap:12px;">
         <input id="loginUserId" type="text" inputmode="numeric" pattern="[0-9]+" required autofocus placeholder="Telegram User ID (e.g. 123456789)" class="mono" style="text-align:center;" />
         <input id="loginOwnerKey" type="password" placeholder="Hashira / Owner Secret Key" class="hidden" />
         <button type="submit" id="loginBtn" class="btn btn-primary" style="width:100%;padding:13px;font-size:14px;">Enter Demon Slayer Corps</button>
       </form>
+
+      <p id="loginErrorMsg" style="font-size:12px;color:var(--red);margin-top:10px;" class="hidden"></p>
 
       <button type="button" onclick="document.getElementById('loginOwnerKey').classList.toggle('hidden')" style="background:none;border:none;color:var(--muted);font-size:11px;margin-top:14px;cursor:pointer;text-decoration:underline;">
         Hashira (Owner) Login
@@ -579,12 +581,14 @@
     <section id="sec-deploy" class="glass" data-kanji="雷" style="padding:20px;">
       <h3 style="font-size:16px;font-weight:700;margin-bottom:4px;">Forge & Deploy Userbot</h3>
       <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Supports <code style="color:var(--secondary);">.py</code>, <code style="color:var(--secondary);">.zip</code>, <code style="color:var(--secondary);">.session</code> & <code style="color:var(--secondary);">requirements.txt</code>. Opens Kasugai Terminal automatically for Phone, OTP & 2FA login.</p>
-      <form id="deployForm" onsubmit="deployUserbot(event)" class="deploy-grid">
+      <form id="deployForm" action="javascript:void(0);" onsubmit="return deployUserbot(event);" class="deploy-grid">
         <input id="botName" type="text" required placeholder="Bot Name (e.g. HinokamiUB)" />
         <input id="entryFile" type="text" value="main.py" placeholder="main.py or -m userbot" class="mono" />
         <input id="botFiles" type="file" multiple required style="padding:9px;font-size:13px;" />
         <button type="submit" id="deployBtn" class="btn btn-primary">Ignite & Open Terminal</button>
-        <textarea id="envVars" rows="2" placeholder="Optional .env variables (API_ID=12345&#10;API_HASH=abcdef&#10;STRING_SESSION=...)" class="mono full-span"></textarea>
+        <textarea id="envVars" rows="2" placeholder="Optional .env variables (API_ID=12345
+API_HASH=abcdef
+STRING_SESSION=...)" class="mono full-span"></textarea>
       </form>
     </section>
 
@@ -604,11 +608,11 @@
         <div style="display:flex;flex-wrap:wrap;gap:6px;">
           <input type="file" id="bgmFileInput" accept=".mp3,.m4a,.mp4,.ogg,.wav" class="hidden" onchange="uploadBgmFile(this)" />
           <button type="button" onclick="document.getElementById('bgmFileInput').click()" class="btn btn-purple btn-sm">Upload BGM (.MP3)</button>
-          <a href="/api/owner/download-json/database" class="btn btn-dark btn-sm">database.json</a>
-          <a href="/api/owner/download-json/users" class="btn btn-dark btn-sm">users.json</a>
-          <a href="/api/owner/download-json/performance" class="btn btn-dark btn-sm">performance.json</a>
-          <a href="/api/owner/download-json/management" class="btn btn-dark btn-sm">management.json</a>
-          <a href="/api/owner/download-all" class="btn btn-green btn-sm">Download All (.ZIP)</a>
+          <button type="button" onclick="ownerDownload('/api/owner/download-json/database')" class="btn btn-dark btn-sm">database.json</button>
+          <button type="button" onclick="ownerDownload('/api/owner/download-json/users')" class="btn btn-dark btn-sm">users.json</button>
+          <button type="button" onclick="ownerDownload('/api/owner/download-json/performance')" class="btn btn-dark btn-sm">performance.json</button>
+          <button type="button" onclick="ownerDownload('/api/owner/download-json/management')" class="btn btn-dark btn-sm">management.json</button>
+          <button type="button" onclick="ownerDownload('/api/owner/download-all')" class="btn btn-green btn-sm">Download All (.ZIP)</button>
         </div>
       </div>
 
@@ -713,7 +717,7 @@
 
       <pre id="logOutput" class="mono term-screen"></pre>
 
-      <form onsubmit="submitTerminalInput(event)" class="term-input-bar">
+      <form action="javascript:void(0);" onsubmit="return submitTerminalInput(event);" class="term-input-bar">
         <input id="termStdinInput" type="text" autocomplete="off" placeholder="Type Phone (+91...), OTP code, or 2FA password..." class="mono" style="font-size:14px;padding:11px 12px;" />
         <button type="button" id="secretToggleBtn" onclick="toggleSecretMode()" class="btn btn-purple btn-sm" title="Mask 2FA Password">2FA Mask: OFF</button>
         <button type="submit" id="termSendBtn" class="btn btn-primary btn-sm" style="padding:11px 16px;">Send ↵</button>
@@ -740,6 +744,38 @@
   </div>
 
   <script>
+    // Strip stray trailing "?" from URL if present
+    if (window.location.search === '?') {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    // --- AUTHENTICATED API FETCH HELPER (COOKIE + HEADER FALLBACK) ---
+    async function apiFetch(url, options = {}) {
+      const uid = localStorage.getItem('siduser_uid') || '';
+      const okey = localStorage.getItem('siduser_okey') || '';
+      const headers = new Headers(options.headers || {});
+      if (uid) headers.set('X-User-Id', uid);
+      if (okey) headers.set('X-Owner-Key', okey);
+
+      const res = await fetch(url, {
+        ...options,
+        headers,
+        credentials: 'same-origin'
+      });
+
+      const rawText = await res.text();
+      try {
+        return JSON.parse(rawText);
+      } catch (_) {
+        return { ok: false, error: `Server returned HTTP ${res.status}. Please wait a few seconds and try again.` };
+      }
+    }
+
+    function ownerDownload(basePath) {
+      const okey = encodeURIComponent(localStorage.getItem('siduser_okey') || '');
+      window.location.href = `${basePath}?okey=${okey}`;
+    }
+
     // --- SMART BACKGROUND SONG CONTROLLER (/bgm) ---
     const BgSongController = (() => {
       let isMuted = localStorage.getItem('siduser_ds_bgm_muted') === '1';
@@ -792,11 +828,10 @@
           return;
         }
 
-        // If unmuted but browser blocked autoplay so it is still paused, start playing now!
         if (!isMuted && audio.paused) {
           audio.volume = 0.28;
           audio.play().then(() => syncButtonState()).catch(err => {
-            alert('Tap again or check audio permissions: ' + err.message);
+            alert('Tap again to start audio: ' + err.message);
           });
           return;
         }
@@ -848,8 +883,7 @@
       if (!input.files || !input.files[0]) return;
       const fd = new FormData();
       fd.append('bgm', input.files[0]);
-      const res = await fetch('/api/owner/upload-bgm', { method: 'POST', body: fd });
-      const data = await res.json();
+      const data = await apiFetch('/api/owner/upload-bgm', { method: 'POST', body: fd });
       input.value = '';
       if (data.ok) {
         BgSongController.reloadTrack();
@@ -931,7 +965,7 @@
         d.y += d.dy;
         if (d.x < 0) d.x = bgCanvas.width;
         if (d.x > bgCanvas.width) d.x = 0;
-        if (d.y < 0) d.y = bgCanvas.height; d.x = Math.random() * bgCanvas.width; }
+        if (d.y < 0) { d.y = bgCanvas.height; d.x = Math.random() * bgCanvas.width; }
         bgCtx.beginPath();
         bgCtx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
         bgCtx.fillStyle = d.c;
@@ -982,7 +1016,7 @@
       drawSeries('sys_ram', theme.line2);
     }
 
-    let currentUserId = null, currentMgmt = {}, activeTerminalBotId = null, secretInputMode = false;
+    let currentUserId = null, currentMgmt = {}, activeTerminalBotId = null, secretInputMode = false, socketInitialized = false;
 
     function detectAuthStage(fullText) {
       const tail = fullText.slice(-350).toLowerCase();
@@ -1030,7 +1064,8 @@
     }
 
     function initSocket() {
-      if (typeof io === 'undefined') return;
+      if (socketInitialized || typeof io === 'undefined') return;
+      socketInitialized = true;
       const socket = io();
 
       socket.on('telemetry_update', (data) => {
@@ -1069,8 +1104,7 @@
     async function viewLogs(botId, botName = '') {
       activeTerminalBotId = botId;
       if (botName) document.getElementById('termBotTitle').innerText = botName;
-      const res = await fetch(`/api/bot/${botId}/logs`);
-      const data = await res.json();
+      const data = await apiFetch(`/api/bot/${botId}/logs`);
       if (data.bot_name) document.getElementById('termBotTitle').innerText = data.bot_name;
       const out = document.getElementById('logOutput');
       out.textContent = data.logs || 'Kasugai Terminal ready...\n';
@@ -1087,82 +1121,101 @@
     }
 
     async function submitTerminalInput(e) {
-      e.preventDefault();
-      if (!activeTerminalBotId) return;
+      if (e) e.preventDefault();
+      if (!activeTerminalBotId) return false;
       const inp = document.getElementById('termStdinInput');
       const val = inp.value;
       inp.value = '';
 
-      const res = await fetch(`/api/bot/${activeTerminalBotId}/stdin`, {
+      const data = await apiFetch(`/api/bot/${activeTerminalBotId}/stdin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ input: val, is_secret: secretInputMode })
       });
-      const data = await res.json();
       if (!data.ok) {
         alert(data.error || 'Could not send input to terminal.');
       }
       inp.focus();
+      return false;
     }
 
     async function sendCtrlC() {
       if (!activeTerminalBotId) return;
-      await fetch(`/api/bot/${activeTerminalBotId}/stdin`, {
+      await apiFetch(`/api/bot/${activeTerminalBotId}/stdin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ctrl_c: true })
       });
     }
 
+    function enterDashboard(data) {
+      currentUserId = data.user_id;
+      document.getElementById('loginModal').classList.add('hidden');
+      document.getElementById('dashboardApp').classList.remove('hidden');
+      document.getElementById('navUserId').innerText = data.user_id;
+      document.getElementById('userJoinedAt').innerText = data.joined_at || 'Today';
+      document.getElementById('userMaxBots').innerText = data.max_bots || 5;
+      if (data.is_owner) {
+        document.getElementById('ownerTabBtn').classList.remove('hidden');
+        document.getElementById('mobileOwnerNavBtn').classList.remove('hidden');
+      }
+      loadMyBots();
+      initSocket();
+    }
+
     async function checkAuth() {
-      const res = await fetch('/api/me');
-      const data = await res.json();
-      if (data.authenticated) {
-        currentUserId = data.user_id;
-        document.getElementById('loginModal').classList.add('hidden');
-        document.getElementById('dashboardApp').classList.remove('hidden');
-        document.getElementById('navUserId').innerText = data.user_id;
-        document.getElementById('userJoinedAt').innerText = data.joined_at;
-        document.getElementById('userMaxBots').innerText = data.max_bots;
-        if (data.is_owner) {
-          document.getElementById('ownerTabBtn').classList.remove('hidden');
-          document.getElementById('mobileOwnerNavBtn').classList.remove('hidden');
-        }
-        loadMyBots();
-        initSocket();
+      const data = await apiFetch('/api/me');
+      if (data && data.authenticated) {
+        enterDashboard(data);
       }
     }
 
     async function handleLogin(e) {
-      e.preventDefault();
+      if (e) e.preventDefault();
       BgSongController.tryPlay();
+
       const btn = document.getElementById('loginBtn');
+      const errBox = document.getElementById('loginErrorMsg');
+      const uidVal = document.getElementById('loginUserId').value.trim();
+      const okeyVal = document.getElementById('loginOwnerKey').value.trim();
+
+      errBox.classList.add('hidden');
       btn.disabled = true;
       btn.innerText = 'Concentrating...';
 
-      const res = await fetch('/api/login', {
+      const data = await apiFetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: document.getElementById('loginUserId').value,
-          owner_key: document.getElementById('loginOwnerKey').value
-        })
+        body: JSON.stringify({ user_id: uidVal, owner_key: okeyVal })
       });
-      const data = await res.json();
+
       btn.disabled = false;
       btn.innerText = 'Enter Demon Slayer Corps';
 
-      if (data.ok) location.reload();
-      else alert(data.error || 'Invalid User ID');
+      if (data && data.ok) {
+        localStorage.setItem('siduser_uid', data.user_id);
+        if (data.is_owner && okeyVal) {
+          localStorage.setItem('siduser_okey', okeyVal);
+        } else {
+          localStorage.removeItem('siduser_okey');
+        }
+        enterDashboard(data);
+      } else {
+        errBox.innerText = (data && data.error) || 'Unable to verify Telegram User ID.';
+        errBox.classList.remove('hidden');
+      }
+      return false;
     }
 
     async function handleLogout() {
-      await fetch('/api/logout', { method: 'POST' });
-      location.reload();
+      localStorage.removeItem('siduser_uid');
+      localStorage.removeItem('siduser_okey');
+      await apiFetch('/api/logout', { method: 'POST' });
+      window.location.href = '/';
     }
 
     async function deployUserbot(e) {
-      e.preventDefault();
+      if (e) e.preventDefault();
       const btn = document.getElementById('deployBtn');
       btn.disabled = true;
       btn.innerText = 'Forging...';
@@ -1175,8 +1228,7 @@
         formData.append('files', file);
       }
 
-      const res = await fetch('/api/deploy', { method: 'POST', body: formData });
-      const data = await res.json();
+      const data = await apiFetch('/api/deploy', { method: 'POST', body: formData });
       btn.disabled = false;
       btn.innerText = 'Ignite & Open Terminal';
 
@@ -1185,14 +1237,14 @@
         await loadMyBots();
         viewLogs(data.bot_id, data.bot_name);
       } else {
-        alert(data.error);
+        alert(data.error || 'Deployment failed.');
       }
+      return false;
     }
 
     async function loadMyBots() {
-      const res = await fetch('/api/my-bots');
-      const data = await res.json();
-      if (!data.ok) return;
+      const data = await apiFetch('/api/my-bots');
+      if (!data || !data.ok) return;
 
       document.getElementById('userBotCount').innerText = data.bots.length;
       const grid = document.getElementById('myBotsGrid');
@@ -1228,7 +1280,7 @@
 
     async function botAction(botId, action) {
       if (action === 'terminate' && !confirm('Terminate and delete this userbot permanently?')) return;
-      await fetch(`/api/bot/${botId}/action`, {
+      await apiFetch(`/api/bot/${botId}/action`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action })
@@ -1239,9 +1291,8 @@
     }
 
     async function openSettings(botId) {
-      const res = await fetch(`/api/bot/${botId}/settings`);
-      const data = await res.json();
-      if (!data.ok) return;
+      const data = await apiFetch(`/api/bot/${botId}/settings`);
+      if (!data || !data.ok) return;
       document.getElementById('editBotId').value = botId;
       document.getElementById('editBotName').value = data.bot_name;
       document.getElementById('editEntryFile').value = data.entry_file;
@@ -1251,7 +1302,7 @@
 
     async function saveBotSettings(restartAfter) {
       const botId = document.getElementById('editBotId').value;
-      await fetch(`/api/bot/${botId}/settings`, {
+      await apiFetch(`/api/bot/${botId}/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1275,9 +1326,8 @@
     }
 
     async function loadOwnerOverview() {
-      const res = await fetch('/api/owner/overview');
-      const data = await res.json();
-      if (!data.ok) return;
+      const data = await apiFetch('/api/owner/overview');
+      if (!data || !data.ok) return;
 
       currentMgmt = data.management || {};
       document.getElementById('maintToggleBtn').innerText = currentMgmt.maintenance_mode ? 'ON' : 'OFF';
@@ -1314,7 +1364,7 @@
     }
 
     async function toggleManagementFlag(key) {
-      await fetch('/api/owner/management', {
+      await apiFetch('/api/owner/management', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [key]: !currentMgmt[key] })
@@ -1324,7 +1374,7 @@
 
     async function saveMaxBots() {
       const val = document.getElementById('maxBotsInput').value;
-      await fetch('/api/owner/management', {
+      await apiFetch('/api/owner/management', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ max_bots_per_user: parseInt(val, 10) })
@@ -1333,7 +1383,7 @@
     }
 
     async function toggleBanUser(uid) {
-      await fetch('/api/owner/management', {
+      await apiFetch('/api/owner/management', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ toggle_ban_user_id: uid })
