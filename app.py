@@ -31,8 +31,10 @@ app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
+STATIC_DIR = os.path.join(config.BASE_DIR, "static")
 os.makedirs(config.DATA_DIR, exist_ok=True)
 os.makedirs(config.UPLOAD_DIR, exist_ok=True)
+os.makedirs(STATIC_DIR, exist_ok=True)
 
 START_TIME = time.time()
 
@@ -120,10 +122,6 @@ DANGEROUS_STRINGS = (
 
 
 def scan_project_ast(bot_dir):
-    """
-    Scans all Python files in a userbot directory using Python's built-in AST.
-    Returns (is_safe: bool, error_message: str | None).
-    """
     mgmt = read_json("management")
     if not mgmt.get("ast_security_scan", True):
         return True, None
@@ -143,13 +141,12 @@ def scan_project_ast(bot_dir):
             except SyntaxError as e:
                 return False, f"SyntaxError in {rel_path} (line {e.lineno}): {e.msg}"
 
-            aliases = {}       # e.g. import os as _os -> {"_os": "os"}
-            banned_names = {}  # e.g. from os import system as run -> {"run": "os.system"}
+            aliases = {}
+            banned_names = {}
 
             for node in ast.walk(tree):
                 line_no = getattr(node, "lineno", 0)
 
-                # 1. Check `import ...`
                 if isinstance(node, ast.Import):
                     for alias in node.names:
                         top_mod = alias.name.split(".")[0]
@@ -157,7 +154,6 @@ def scan_project_ast(bot_dir):
                             return False, f"{rel_path} (line {line_no}): Blocked module '{top_mod}'."
                         aliases[alias.asname or top_mod] = top_mod
 
-                # 2. Check `from ... import ...`
                 elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
                     top_mod = node.module.split(".")[0]
                     if top_mod in BANNED_MODULES:
@@ -167,7 +163,6 @@ def scan_project_ast(bot_dir):
                         if full_target in BANNED_CALLS:
                             banned_names[alias.asname or alias.name] = full_target
 
-                # 3. Check function calls (`os.system`, `shutil.rmtree`, `eval`, `exec`, etc.)
                 elif isinstance(node, ast.Call):
                     if isinstance(node.func, ast.Name):
                         fn = node.func.id
@@ -182,7 +177,6 @@ def scan_project_ast(bot_dir):
                         if full_call in BANNED_CALLS:
                             return False, f"{rel_path} (line {line_no}): Blocked system call '{full_call}()'."
 
-                # 4. Check string literals for path traversal or hoster DB access
                 elif isinstance(node, ast.Constant) and isinstance(node.value, str):
                     lower_val = node.value.lower()
                     for pattern in DANGEROUS_STRINGS:
@@ -372,7 +366,6 @@ def launch_bot_process(bot_id):
         write_json("database", db)
         return
 
-    # Re-verify AST before process startup
     is_safe, ast_err = scan_project_ast(bot_dir)
     if not is_safe:
         emit_log_line(bot_id, log_path, f"[AST BLOCKED] {ast_err}\n")
@@ -547,10 +540,24 @@ def telemetry_worker():
         time.sleep(2)
 
 
-# --- ROUTES: HEALTH & USER-ID-ONLY AUTH ---
+# --- ROUTES: HEALTH, AUTO-DETECT BGM AUDIO & USER-ID-ONLY AUTH ---
 @app.route("/health")
 def health():
     return jsonify({"ok": True, "uptime": int(time.time() - START_TIME)})
+
+
+@app.route("/bgm")
+def serve_bgm():
+    for folder in (STATIC_DIR, config.BASE_DIR):
+        if not os.path.isdir(folder):
+            continue
+        preferred = os.path.join(folder, "bgm.mp3")
+        if os.path.exists(preferred):
+            return send_file(preferred, mimetype="audio/mpeg")
+        for fname in sorted(os.listdir(folder)):
+            if fname.lower().endswith(".mp3"):
+                return send_file(os.path.join(folder, fname), mimetype="audio/mpeg")
+    return jsonify({"ok": False, "error": "No .mp3 file found in static/ or root folder."}), 404
 
 
 @app.route("/")
@@ -662,7 +669,6 @@ def deploy_bot():
                 shutil.rmtree(bot_dir, ignore_errors=True)
                 return jsonify({"ok": False, "error": f"ZIP extraction failed: {e}"}), 400
 
-    # AST Security Scan before saving or executing
     is_safe, ast_error = scan_project_ast(bot_dir)
     if not is_safe:
         shutil.rmtree(bot_dir, ignore_errors=True)
