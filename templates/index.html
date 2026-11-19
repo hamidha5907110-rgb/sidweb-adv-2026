@@ -3,77 +3,147 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>SidUser Cloud — Fast Telegram Userbot Hoster</title>
+  <title>SidUser Corps — Demon Slayer Telegram Userbot Hoster</title>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" defer></script>
   <style>
     :root {
-      --bg: #060812;
-      --glass: rgba(14, 19, 38, 0.72);
-      --card: rgba(20, 27, 52, 0.78);
-      --border: rgba(139, 92, 246, 0.34);
-      --cyan: #22d3ee;
-      --purple: #a855f7;
-      --pink: #f472b6;
-      --green: #34d399;
-      --red: #fb7185;
-      --amber: #fbbf24;
-      --text: #f1f5f9;
-      --muted: #94a3b8;
-      --anime-img: url('https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=1280&q=75');
+      --bg: #08060c;
+      --glass: rgba(15, 11, 20, 0.78);
+      --card: rgba(22, 16, 28, 0.82);
+      --border: rgba(239, 68, 68, 0.38);
+      --primary: #ef4444;
+      --secondary: #f97316;
+      --accent: #10b981;
+      --gold: #fbbf24;
+      --green: #10b981;
+      --red: #f43f5e;
+      --amber: #f59e0b;
+      --text: #f8fafc;
+      --muted: #a1a1aa;
+      --moon-color: #fde68a;
+      --slash-start: #ef4444;
+      --slash-end: #f97316;
+      --particle-1: rgba(239, 68, 68, 0.55);
+      --particle-2: rgba(249, 115, 22, 0.45);
+      --sky-grad: radial-gradient(circle at 75% 18%, rgba(239, 68, 68, 0.24) 0%, rgba(16, 185, 129, 0.08) 38%, #07050a 82%);
     }
 
-    body[data-theme="sakura"] {
-      --cyan: #f472b6;
-      --purple: #c084fc;
-      --border: rgba(244, 114, 182, 0.38);
-      --anime-img: url('https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=1280&q=75');
+    /* Water Breathing — Mizu no Kokyu (Giyu / Tanjiro) */
+    body[data-theme="water"] {
+      --border: rgba(14, 165, 233, 0.42);
+      --primary: #0ea5e9;
+      --secondary: #38bdf8;
+      --accent: #22d3ee;
+      --moon-color: #bae6fd;
+      --slash-start: #0284c7;
+      --slash-end: #38bdf8;
+      --particle-1: rgba(14, 165, 233, 0.55);
+      --particle-2: rgba(56, 189, 248, 0.45);
+      --sky-grad: radial-gradient(circle at 75% 18%, rgba(14, 165, 233, 0.26) 0%, rgba(30, 58, 138, 0.18) 42%, #050914 84%);
     }
 
-    body[data-theme="shinobi"] {
-      --cyan: #34d399;
-      --purple: #38bdf8;
-      --border: rgba(52, 211, 153, 0.36);
-      --anime-img: url('https://images.unsplash.com/photo-1542051841857-5f90071e7989?auto=format&fit=crop&w=1280&q=75');
+    /* Thunder Breathing — Kaminari no Kokyu (Zenitsu) */
+    body[data-theme="thunder"] {
+      --border: rgba(250, 204, 21, 0.42);
+      --primary: #eab308;
+      --secondary: #f59e0b;
+      --accent: #fde047;
+      --moon-color: #fef08a;
+      --slash-start: #eab308;
+      --slash-end: #f97316;
+      --particle-1: rgba(250, 204, 21, 0.6);
+      --particle-2: rgba(245, 158, 11, 0.45);
+      --sky-grad: radial-gradient(circle at 75% 18%, rgba(234, 179, 8, 0.22) 0%, rgba(88, 28, 135, 0.16) 42%, #08060f 84%);
+    }
+
+    /* Wisteria & Blood Demon Art (Shinobu / Nezuko) */
+    body[data-theme="wisteria"] {
+      --border: rgba(236, 72, 153, 0.42);
+      --primary: #ec4899;
+      --secondary: #a855f7;
+      --accent: #f472b6;
+      --moon-color: #f5d0fe;
+      --slash-start: #db2777;
+      --slash-end: #9333ea;
+      --particle-1: rgba(236, 72, 153, 0.55);
+      --particle-2: rgba(168, 85, 247, 0.48);
+      --sky-grad: radial-gradient(circle at 75% 18%, rgba(219, 39, 119, 0.24) 0%, rgba(126, 34, 206, 0.2) 44%, #090510 84%);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     html { scroll-behavior: smooth; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #060812;
+      background: var(--bg);
       color: var(--text);
       min-height: 100vh;
       overflow-x: hidden;
-      padding-bottom: calc(88px + env(safe-area-inset-bottom));
+      padding-bottom: calc(92px + env(safe-area-inset-bottom));
     }
 
-    /* Non-Blocking Animated Anime Wallpaper Layer */
-    .anime-wallpaper {
+    /* Demon Slayer Character & Moonlit Shrine Stage */
+    .ds-backdrop {
       position: fixed;
       inset: 0;
       z-index: -3;
+      background: var(--sky-grad);
+      transition: background 0.6s ease;
+      overflow: hidden;
+    }
+
+    /* Subtle Ichimatsu (Tanjiro Haori Checkered) Overlay */
+    .ds-haori-grid {
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      opacity: 0.045;
+      pointer-events: none;
       background-image:
-        linear-gradient(145deg, rgba(6, 8, 18, 0.86), rgba(16, 10, 36, 0.84)),
-        var(--anime-img);
-      background-size: cover;
-      background-position: center;
-      animation: animeKenBurns 26s ease-in-out infinite alternate;
-      transition: background-image 0.6s ease;
+        linear-gradient(45deg, var(--accent) 25%, transparent 25%),
+        linear-gradient(-45deg, var(--accent) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, var(--accent) 75%),
+        linear-gradient(-45deg, transparent 75%, var(--accent) 75%);
+      background-size: 36px 36px;
+      background-position: 0 0, 0 18px, 18px -18px, -18px 0;
     }
 
-    @keyframes animeKenBurns {
-      0% { transform: scale(1) translate3d(0, 0, 0); }
-      100% { transform: scale(1.08) translate3d(-1.5%, -1%, 0); }
+    /* Full-Screen Demon Slayer Swordsman Character Art SVG */
+    .ds-character-art {
+      position: fixed;
+      right: -2%;
+      bottom: 0;
+      width: min(560px, 92vw);
+      height: auto;
+      z-index: -2;
+      pointer-events: none;
+      opacity: 0.42;
+      filter: drop-shadow(0 0 28px var(--primary));
+      animation: slayerStance 6s ease-in-out infinite alternate;
+      transition: filter 0.5s ease;
     }
 
-    @keyframes animeFloat {
-      0%, 100% { transform: translateY(0px); }
-      50% { transform: translateY(-6px); }
+    @keyframes slayerStance {
+      0% { transform: translateY(4px) scale(1); }
+      100% { transform: translateY(-8px) scale(1.02); }
     }
 
-    @keyframes pulseAura {
-      0%, 100% { box-shadow: 0 0 18px rgba(34, 211, 238, 0.25), 0 0 32px rgba(168, 85, 247, 0.2); }
-      50% { box-shadow: 0 0 26px rgba(168, 85, 247, 0.45), 0 0 44px rgba(34, 211, 238, 0.3); }
+    @keyframes breathingAura {
+      0%, 100% {
+        box-shadow: 0 0 16px rgba(0, 0, 0, 0.55), 0 0 22px color-mix(in srgb, var(--primary) 32%, transparent);
+      }
+      50% {
+        box-shadow: 0 0 22px rgba(0, 0, 0, 0.65), 0 0 34px color-mix(in srgb, var(--secondary) 48%, transparent);
+      }
+    }
+
+    @keyframes nichirinFloat {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-5px) rotate(1.5deg); }
+    }
+
+    @keyframes slashSpin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
 
     @keyframes slideUpFade {
@@ -84,42 +154,60 @@
     #bgCanvas {
       position: fixed;
       inset: 0;
-      z-index: -2;
+      z-index: -1;
       pointer-events: none;
     }
 
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     .hidden { display: none !important; }
 
+    /* Demon Slayer Obsidian Glass Segments */
     .glass {
+      position: relative;
       background: var(--glass);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid var(--border);
       border-radius: 20px;
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.48);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.58), inset 0 1px 0 rgba(255, 255, 255, 0.06);
       animation: slideUpFade 0.45s ease both;
+      overflow: hidden;
+    }
+
+    /* Kanji Breathing Watermark inside Segments */
+    .glass[data-kanji]::before {
+      content: attr(data-kanji);
+      position: absolute;
+      right: 16px;
+      top: 8px;
+      font-size: 64px;
+      font-weight: 900;
+      color: var(--primary);
+      opacity: 0.06;
+      pointer-events: none;
+      line-height: 1;
     }
 
     .card {
       background: var(--card);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(56, 189, 248, 0.26);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--primary);
       border-radius: 16px;
       padding: 16px;
       transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
     }
     .card:hover {
       transform: translateY(-3px);
-      border-color: var(--purple);
-      box-shadow: 0 10px 26px rgba(168, 85, 247, 0.24);
+      border-color: var(--secondary);
+      box-shadow: 0 10px 28px color-mix(in srgb, var(--primary) 28%, transparent);
     }
 
     input, textarea {
       width: 100%;
-      background: rgba(6, 10, 24, 0.86);
-      border: 1px solid #334155;
+      background: rgba(8, 6, 14, 0.88);
+      border: 1px solid rgba(161, 161, 170, 0.28);
       color: var(--text);
       padding: 12px 14px;
       border-radius: 12px;
@@ -128,57 +216,102 @@
       transition: border-color 0.2s, box-shadow 0.2s;
     }
     input:focus, textarea:focus {
-      border-color: var(--cyan);
-      box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.14);
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
     }
 
+    /* Nichirin Katana Slash Buttons */
     .btn {
+      position: relative;
+      overflow: hidden;
       border: none;
       cursor: pointer;
-      font-weight: 600;
+      font-weight: 700;
+      letter-spacing: 0.2px;
       border-radius: 12px;
       padding: 11px 16px;
       font-size: 13px;
-      transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+      transition: transform 0.16s ease, box-shadow 0.22s ease, filter 0.2s ease;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 6px;
       text-decoration: none;
     }
-    .btn:hover { opacity: 0.93; }
-    .btn:active { transform: scale(0.96); }
+
+    /* Diagonal Katana Light-Slash Sweep */
+    .btn::after {
+      content: "";
+      position: absolute;
+      top: -50%;
+      left: -75%;
+      width: 50%;
+      height: 200%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+      transform: rotate(25deg);
+      transition: left 0.55s ease;
+      pointer-events: none;
+    }
+    .btn:hover::after { left: 135%; }
+    .btn:active { transform: scale(0.95); }
+
     .btn-primary {
-      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
       color: #fff;
-      box-shadow: 0 6px 18px rgba(168, 85, 247, 0.3);
+      box-shadow: 0 6px 20px color-mix(in srgb, var(--primary) 42%, transparent);
     }
     .btn-sm { padding: 7px 12px; font-size: 12px; border-radius: 10px; }
-    .btn-dark { background: rgba(30, 41, 59, 0.85); color: var(--cyan); border: 1px solid rgba(56, 189, 248, 0.2); }
-    .btn-purple { background: rgba(168, 85, 247, 0.2); color: #e9d5ff; border: 1px solid rgba(168, 85, 247, 0.35); }
-    .btn-amber { background: rgba(251, 191, 36, 0.2); color: var(--amber); border: 1px solid rgba(251, 191, 36, 0.35); }
-    .btn-red { background: rgba(251, 113, 133, 0.2); color: var(--red); border: 1px solid rgba(251, 113, 133, 0.35); }
-    .btn-green { background: var(--green); color: #04130d; font-weight: 700; }
+    .btn-dark {
+      background: rgba(24, 20, 34, 0.9);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-purple {
+      background: color-mix(in srgb, var(--primary) 18%, rgba(15, 11, 20, 0.9));
+      color: #fff;
+      border: 1px solid var(--border);
+    }
+    .btn-amber {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fcd34d;
+      border: 1px solid rgba(245, 158, 11, 0.42);
+    }
+    .btn-red {
+      background: rgba(244, 63, 94, 0.22);
+      color: #fda4af;
+      border: 1px solid rgba(244, 63, 94, 0.42);
+    }
+    .btn-green {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #fff;
+      font-weight: 700;
+    }
 
-    /* Anime Avatar Frames */
-    .anime-avatar {
+    /* Demon Slayer Corps Crest Avatar */
+    .ds-crest {
       width: 52px;
       height: 52px;
       border-radius: 16px;
-      object-fit: cover;
-      border: 2px solid var(--cyan);
-      animation: animeFloat 4s ease-in-out infinite, pulseAura 3.5s ease-in-out infinite;
+      background: radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--primary) 35%, #120d18), #09070d);
+      border: 2px solid var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      animation: nichirinFloat 4s ease-in-out infinite, breathingAura 3.5s ease-in-out infinite;
     }
 
-    .anime-hero-avatar {
-      width: 78px;
-      height: 78px;
+    .ds-hero-crest {
+      width: 82px;
+      height: 82px;
       margin: 0 auto 14px;
-      border-radius: 22px;
-      object-fit: cover;
-      border: 2px solid var(--cyan);
-      display: block;
-      animation: animeFloat 4s ease-in-out infinite, pulseAura 3.5s ease-in-out infinite;
+      border-radius: 24px;
+      background: radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--primary) 40%, #140e1c), #09070d);
+      border: 2px solid var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: nichirinFloat 4s ease-in-out infinite, breathingAura 3.5s ease-in-out infinite;
     }
 
     /* Login Overlay */
@@ -186,13 +319,13 @@
       position: fixed;
       inset: 0;
       z-index: 60;
-      background: rgba(4, 6, 15, 0.86);
+      background: rgba(5, 4, 9, 0.88);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 16px;
+      padding: 14px;
     }
     .login-box { max-width: 400px; width: 100%; padding: 28px 24px; text-align: center; }
 
@@ -210,15 +343,65 @@
     }
 
     .badge { padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
-    .badge-run { background: rgba(52, 211, 153, 0.18); color: var(--green); box-shadow: 0 0 12px rgba(52, 211, 153, 0.25); }
-    .badge-wait { background: rgba(251, 191, 36, 0.18); color: var(--amber); }
+    .badge-run { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+    .badge-wait { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
 
     table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
-    th, td { padding: 10px 10px; border-bottom: 1px solid rgba(148, 163, 184, 0.15); }
+    th, td { padding: 10px 10px; border-bottom: 1px solid rgba(161, 161, 170, 0.16); }
     th { color: var(--muted); font-weight: 600; }
     .table-wrap { overflow-x: auto; }
 
-    /* Mobile Glassmorphism Bottom Navigation Bar */
+    /* Kasugai Crow Interactive Terminal Styling */
+    .term-steps {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .step-chip {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(24, 20, 34, 0.8);
+      border: 1px solid rgba(161, 161, 170, 0.25);
+      color: var(--muted);
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .step-chip.active {
+      background: color-mix(in srgb, var(--primary) 22%, transparent);
+      border-color: var(--primary);
+      color: #fff;
+      box-shadow: 0 0 12px color-mix(in srgb, var(--primary) 35%, transparent);
+    }
+    .step-chip.done {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: #10b981;
+      color: #34d399;
+    }
+
+    .term-screen {
+      background: #06050a;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      height: 270px;
+      overflow-y: auto;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #34d399;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .term-input-bar {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      align-items: center;
+    }
+
+    /* Mobile Demon Slayer Glassmorphism Bottom Navigation Bar */
     .mobile-glass-nav {
       position: fixed;
       bottom: calc(12px + env(safe-area-inset-bottom));
@@ -226,16 +409,16 @@
       transform: translateX(-50%);
       z-index: 45;
       width: min(94vw, 520px);
-      background: rgba(13, 18, 38, 0.78);
+      background: rgba(14, 10, 20, 0.84);
       backdrop-filter: blur(22px);
       -webkit-backdrop-filter: blur(22px);
-      border: 1px solid rgba(168, 85, 247, 0.42);
+      border: 1px solid var(--border);
       border-radius: 24px;
       padding: 6px;
       display: flex;
       justify-content: space-around;
       align-items: center;
-      box-shadow: 0 12px 34px rgba(0, 0, 0, 0.65), 0 0 22px rgba(34, 211, 238, 0.18);
+      box-shadow: 0 12px 34px rgba(0, 0, 0, 0.72), 0 0 22px color-mix(in srgb, var(--primary) 25%, transparent);
     }
 
     .nav-pill {
@@ -265,36 +448,100 @@
 
     .nav-pill:hover, .nav-pill.active {
       color: #fff;
-      background: linear-gradient(135deg, rgba(34, 211, 238, 0.24), rgba(168, 85, 247, 0.28));
-      border-color: rgba(34, 211, 238, 0.42);
-      box-shadow: 0 4px 14px rgba(34, 211, 238, 0.2);
+      background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 30%, transparent), color-mix(in srgb, var(--secondary) 30%, transparent));
+      border-color: var(--primary);
+      box-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 28%, transparent);
     }
 
     .nav-pill.active svg {
       transform: translateY(-1px) scale(1.08);
-      stroke: var(--cyan);
+      stroke: var(--secondary);
     }
   </style>
 </head>
-<body data-theme="cyber">
-  <div class="anime-wallpaper"></div>
+<body data-theme="hinokami">
+  <!-- Demon Slayer Moonlit Shrine & Swordsman Character Background -->
+  <div class="ds-backdrop"></div>
+  <div class="ds-haori-grid"></div>
+
+  <!-- Custom Demon Slayer Character & Breathing Arc Artwork SVG -->
+  <svg class="ds-character-art" viewBox="0 0 600 620" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <radialGradient id="dsMoon" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="var(--moon-color)" stop-opacity="0.85"/>
+        <stop offset="70%" stop-color="var(--primary)" stop-opacity="0.22"/>
+        <stop offset="100%" stop-color="transparent" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="breathingArc" x1="0%" y1="100%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="var(--slash-start)" stop-opacity="0.95"/>
+        <stop offset="50%" stop-color="var(--slash-end)" stop-opacity="0.8"/>
+        <stop offset="100%" stop-color="#ffffff" stop-opacity="0.95"/>
+      </linearGradient>
+      <pattern id="haoriCheck" width="24" height="24" patternUnits="userSpaceOnUse">
+        <rect width="12" height="12" fill="var(--accent)" fill-opacity="0.55"/>
+        <rect x="12" y="12" width="12" height="12" fill="var(--accent)" fill-opacity="0.55"/>
+        <rect x="12" width="12" height="12" fill="#09070d" fill-opacity="0.85"/>
+        <rect y="12" width="12" height="12" fill="#09070d" fill-opacity="0.85"/>
+      </pattern>
+    </defs>
+
+    <!-- Full Moon & Breathing Energy Halo -->
+    <circle cx="420" cy="175" r="145" fill="url(#dsMoon)"/>
+    <circle cx="420" cy="175" r="95" stroke="var(--moon-color)" stroke-width="1.5" stroke-opacity="0.35"/>
+
+    <!-- Swirling Hinokami / Water / Thunder Breathing Slash Arcs -->
+    <path d="M90 520 C 140 240, 360 110, 560 165 C 400 175, 220 295, 165 540 Z" fill="url(#breathingArc)" opacity="0.72"/>
+    <path d="M60 470 C 150 180, 410 70, 585 130" stroke="url(#breathingArc)" stroke-width="6" stroke-linecap="round"/>
+    <path d="M130 560 C 210 310, 410 210, 575 245" stroke="var(--accent)" stroke-width="3" stroke-dasharray="10 8" stroke-linecap="round" opacity="0.75"/>
+
+    <!-- Demon Slayer Corps Swordsman Silhouette with Checkered Haori & Nichirin Katana -->
+    <g transform="translate(185, 195)">
+      <!-- Flowing Haori Cape -->
+      <path d="M95 135 L35 340 L145 365 L175 230 L215 365 L315 335 L245 135 Z" fill="url(#haoriCheck)" stroke="var(--primary)" stroke-width="2"/>
+      <!-- Corps Uniform Torso -->
+      <path d="M125 125 L215 125 L230 265 L110 265 Z" fill="#0c0a12" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>
+      <!-- White Belt -->
+      <rect x="115" y="232" width="110" height="14" rx="3" fill="#e2e8f0" opacity="0.85"/>
+      <!-- Head & Spiky Demon Slayer Hair -->
+      <circle cx="170" cy="82" r="34" fill="#0c0a12"/>
+      <path d="M134 78 L122 52 L144 58 L142 32 L164 46 L176 24 L188 46 L212 36 L204 62 L224 58 L208 82 Z" fill="#0c0a12" stroke="var(--primary)" stroke-width="1.5"/>
+      <!-- Hanafuda Earring Glow -->
+      <rect x="133" y="96" width="7" height="15" rx="2" fill="#f8fafc" stroke="var(--primary)" stroke-width="1.2"/>
+      <!-- Nichirin Katana Blade Drawn Diagonal -->
+      <line x1="75" y1="245" x2="355" y2="25" stroke="#09070d" stroke-width="9" stroke-linecap="round"/>
+      <line x1="75" y1="245" x2="355" y2="25" stroke="url(#breathingArc)" stroke-width="4" stroke-linecap="round"/>
+      <!-- Nichirin Tsuba (Guard) & Hilt -->
+      <ellipse cx="118" cy="211" rx="14" ry="8" transform="rotate(-38 118 211)" fill="var(--gold)" stroke="#09070d" stroke-width="2"/>
+      <line x1="65" y1="253" x2="115" y2="213" stroke="#18181b" stroke-width="10" stroke-linecap="round"/>
+      <line x1="65" y1="253" x2="115" y2="213" stroke="var(--primary)" stroke-width="3" stroke-dasharray="5 5"/>
+    </g>
+  </svg>
+
   <canvas id="bgCanvas"></canvas>
 
   <!-- USER ID ONLY LOGIN GATE -->
   <div id="loginModal" class="modal-overlay">
-    <div class="glass login-box">
-      <img src="https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&w=240&q=80" alt="Anime Emblem" class="anime-hero-avatar" loading="lazy" />
-      <h1 style="font-size:23px;font-weight:800;background:linear-gradient(90deg,var(--cyan),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">SidUser Cloud</h1>
-      <p style="font-size:12px;color:var(--muted);margin:6px 0 20px;">Enter your Telegram User ID to access your hosted userbots</p>
+    <div class="glass login-box" data-kanji="滅">
+      <div class="ds-hero-crest">
+        <!-- Nichirin Sun-Wheel Tsuba & Corps Kanji Emblem -->
+        <svg width="46" height="46" viewBox="0 0 64 64" fill="none">
+          <circle cx="32" cy="32" r="24" stroke="var(--primary)" stroke-width="2.5"/>
+          <circle cx="32" cy="32" r="17" stroke="var(--secondary)" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <path d="M32 8 L35 20 L32 16 L29 20 Z M32 56 L35 44 L32 48 L29 44 Z M8 32 L20 29 L16 32 L20 35 Z M56 32 L44 29 L48 32 L44 35 Z" fill="var(--gold)"/>
+          <text x="32" y="39" text-anchor="middle" fill="#ffffff" font-size="20" font-weight="900">滅</text>
+        </svg>
+      </div>
+      <h1 style="font-size:23px;font-weight:800;background:linear-gradient(90deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">SidUser Corps</h1>
+      <p style="font-size:12px;color:var(--muted);margin:6px 0 20px;">Enter your Telegram User ID to summon your hosted userbots</p>
 
       <form onsubmit="handleLogin(event)" style="display:flex;flex-direction:column;gap:12px;">
         <input id="loginUserId" type="text" inputmode="numeric" pattern="[0-9]+" required autofocus placeholder="Telegram User ID (e.g. 123456789)" class="mono" style="text-align:center;" />
-        <input id="loginOwnerKey" type="password" placeholder="Owner Secret Key" class="hidden" />
-        <button type="submit" id="loginBtn" class="btn btn-primary" style="width:100%;padding:13px;font-size:14px;">Open Dashboard</button>
+        <input id="loginOwnerKey" type="password" placeholder="Hashira / Owner Secret Key" class="hidden" />
+        <button type="submit" id="loginBtn" class="btn btn-primary" style="width:100%;padding:13px;font-size:14px;">Enter Demon Slayer Corps</button>
       </form>
 
       <button type="button" onclick="document.getElementById('loginOwnerKey').classList.toggle('hidden')" style="background:none;border:none;color:var(--muted);font-size:11px;margin-top:14px;cursor:pointer;text-decoration:underline;">
-        Owner Login
+        Hashira (Owner) Login
       </button>
     </div>
   </div>
@@ -303,48 +550,53 @@
   <div id="dashboardApp" class="container hidden">
     <header class="glass navbar">
       <div style="display:flex;align-items:center;gap:12px;">
-        <img src="https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&w=160&q=80" alt="Anime Avatar" class="anime-avatar" loading="lazy" />
+        <div class="ds-crest">
+          <svg width="30" height="30" viewBox="0 0 64 64" fill="none">
+            <circle cx="32" cy="32" r="24" stroke="var(--primary)" stroke-width="3"/>
+            <text x="32" y="40" text-anchor="middle" fill="#ffffff" font-size="22" font-weight="900">滅</text>
+          </svg>
+        </div>
         <div>
-          <h2 style="font-size:18px;font-weight:800;">SidUser <span style="color:var(--cyan);">Hoster</span></h2>
-          <p style="font-size:12px;color:var(--muted);">User ID: <span id="navUserId" class="mono" style="color:var(--cyan);font-weight:700;"></span></p>
+          <h2 style="font-size:18px;font-weight:800;">SidUser <span style="color:var(--primary);">Corps</span></h2>
+          <p style="font-size:12px;color:var(--muted);">Slayer ID: <span id="navUserId" class="mono" style="color:var(--secondary);font-weight:700;"></span></p>
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <button onclick="cycleAnimeTheme()" id="themeChipBtn" class="btn btn-purple btn-sm" title="Switch Anime Theme">Theme: Cyber</button>
-        <button id="ownerTabBtn" onclick="toggleOwnerPanel()" class="btn btn-amber btn-sm hidden">Owner</button>
+        <button onclick="cycleAnimeTheme()" id="themeChipBtn" class="btn btn-purple btn-sm" title="Switch Breathing Style">Breathing: Hinokami</button>
+        <button id="ownerTabBtn" onclick="toggleOwnerPanel()" class="btn btn-amber btn-sm hidden">Hashira Panel</button>
         <button onclick="handleLogout()" class="btn btn-red btn-sm">Logout</button>
       </div>
     </header>
 
     <!-- Stats & Native Canvas Telemetry -->
     <div id="sec-stats" class="grid-3">
-      <div class="glass" style="padding:18px;display:flex;flex-direction:column;justify-content:space-between;">
+      <div class="glass" data-kanji="火" style="padding:18px;display:flex;flex-direction:column;justify-content:space-between;">
         <div>
-          <span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--cyan);font-weight:700;">Hosted On Your ID</span>
+          <span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--primary);font-weight:700;">Total Concentration Quota</span>
           <div style="margin-top:8px;display:flex;align-items:baseline;gap:8px;">
             <span id="userBotCount" style="font-size:34px;font-weight:800;">0</span>
-            <span style="font-size:12px;color:var(--muted);">/ <span id="userMaxBots">5</span> instances</span>
+            <span style="font-size:12px;color:var(--muted);">/ <span id="userMaxBots">5</span> Nichirin bots</span>
           </div>
-          <p style="font-size:11px;color:var(--muted);margin-top:4px;">Active since: <span id="userJoinedAt"></span></p>
+          <p style="font-size:11px;color:var(--muted);margin-top:4px;">Enlisted since: <span id="userJoinedAt"></span></p>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
-          <div style="background:rgba(6,10,24,0.72);padding:10px;border-radius:12px;border:1px solid rgba(56,189,248,0.18);">
-            <div style="font-size:11px;color:var(--muted);">Your CPU</div>
-            <div id="userTotalCpu" class="mono" style="font-size:15px;font-weight:700;color:var(--cyan);margin-top:2px;">0.0%</div>
+          <div style="background:rgba(8,6,14,0.78);padding:10px;border-radius:12px;border:1px solid var(--border);">
+            <div style="font-size:11px;color:var(--muted);">Slayer CPU</div>
+            <div id="userTotalCpu" class="mono" style="font-size:15px;font-weight:700;color:var(--primary);margin-top:2px;">0.0%</div>
           </div>
-          <div style="background:rgba(6,10,24,0.72);padding:10px;border-radius:12px;border:1px solid rgba(168,85,247,0.18);">
-            <div style="font-size:11px;color:var(--muted);">Your RAM</div>
-            <div id="userTotalRam" class="mono" style="font-size:15px;font-weight:700;color:var(--purple);margin-top:2px;">0 MB</div>
+          <div style="background:rgba(8,6,14,0.78);padding:10px;border-radius:12px;border:1px solid var(--border);">
+            <div style="font-size:11px;color:var(--muted);">Slayer RAM</div>
+            <div id="userTotalRam" class="mono" style="font-size:15px;font-weight:700;color:var(--secondary);margin-top:2px;">0 MB</div>
           </div>
         </div>
       </div>
 
-      <div class="glass telemetry-span" style="padding:18px;grid-column:span 2;">
+      <div class="glass telemetry-span" data-kanji="水" style="padding:18px;grid-column:span 2;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--purple);font-weight:700;">Live Server Performance</span>
+          <span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--secondary);font-weight:700;">Breathing Telemetry (CPU & RAM)</span>
           <div class="mono" style="font-size:12px;display:flex;gap:12px;">
-            <span style="color:var(--cyan);">CPU: <b id="sysCpuVal">0.0%</b></span>
-            <span style="color:var(--purple);">RAM: <b id="sysRamVal">0.0%</b></span>
+            <span style="color:var(--primary);">CPU: <b id="sysCpuVal">0.0%</b></span>
+            <span style="color:var(--secondary);">RAM: <b id="sysRamVal">0.0%</b></span>
           </div>
         </div>
         <canvas id="telemetryChart" height="120" style="width:100%;display:block;"></canvas>
@@ -352,14 +604,14 @@
     </div>
 
     <!-- Deploy Form -->
-    <section id="sec-deploy" class="glass" style="padding:20px;">
-      <h3 style="font-size:16px;font-weight:700;margin-bottom:4px;">Deploy Userbot Files</h3>
-      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Supports <code style="color:var(--cyan);">.py</code>, <code style="color:var(--cyan);">.zip</code>, <code style="color:var(--cyan);">.session</code> & <code style="color:var(--cyan);">requirements.txt</code>. Auto-pip installs missing modules.</p>
+    <section id="sec-deploy" class="glass" data-kanji="雷" style="padding:20px;">
+      <h3 style="font-size:16px;font-weight:700;margin-bottom:4px;">Forge & Deploy Userbot</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Supports <code style="color:var(--secondary);">.py</code>, <code style="color:var(--secondary);">.zip</code>, <code style="color:var(--secondary);">.session</code> & <code style="color:var(--secondary);">requirements.txt</code>. Opens Kasugai Terminal automatically for Phone, OTP & 2FA login.</p>
       <form id="deployForm" onsubmit="deployUserbot(event)" class="deploy-grid">
-        <input id="botName" type="text" required placeholder="Bot Name (e.g. MyUserbot)" />
+        <input id="botName" type="text" required placeholder="Bot Name (e.g. HinokamiUB)" />
         <input id="entryFile" type="text" value="main.py" placeholder="main.py or -m userbot" class="mono" />
         <input id="botFiles" type="file" multiple required style="padding:9px;font-size:13px;" />
-        <button type="submit" id="deployBtn" class="btn btn-primary">Launch Userbot</button>
+        <button type="submit" id="deployBtn" class="btn btn-primary">Ignite & Open Terminal</button>
         <textarea id="envVars" rows="2" placeholder="Optional .env variables (API_ID=12345
 API_HASH=abcdef
 STRING_SESSION=...)" class="mono full-span"></textarea>
@@ -368,16 +620,16 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
 
     <!-- Isolated Userbots Grid -->
     <section id="sec-bots">
-      <h3 style="font-size:16px;font-weight:700;margin-bottom:12px;">Your Hosted Userbots</h3>
+      <h3 style="font-size:16px;font-weight:700;margin-bottom:12px;">Your Active Nichirin Userbots</h3>
       <div id="myBotsGrid" class="grid-2"></div>
     </section>
 
     <!-- Owner Master Control Suite -->
-    <section id="ownerSection" class="glass hidden" style="padding:20px;border-color:rgba(251,191,36,0.5);display:flex;flex-direction:column;gap:16px;">
+    <section id="ownerSection" class="glass hidden" data-kanji="柱" style="padding:20px;border-color:rgba(251,191,36,0.55);display:flex;flex-direction:column;gap:16px;">
       <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;">
         <div>
-          <h3 style="font-size:17px;font-weight:800;color:var(--amber);">Owner Master Control & JSON Export</h3>
-          <p style="font-size:12px;color:var(--muted);">View all User IDs, manage global settings, terminate sessions, or download JSON & userbot files.</p>
+          <h3 style="font-size:17px;font-weight:800;color:var(--gold);">Hashira Master Control & JSON Export</h3>
+          <p style="font-size:12px;color:var(--muted);">Inspect all Slayer IDs, manage Corps settings, terminate sessions, or download JSON & userbot files.</p>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;">
           <a href="/api/owner/download-json/database" class="btn btn-dark btn-sm">database.json</a>
@@ -388,7 +640,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
         </div>
       </div>
 
-      <div class="grid-3" style="background:rgba(6,10,24,0.65);padding:14px;border-radius:12px;font-size:12px;">
+      <div class="grid-3" style="background:rgba(8,6,14,0.72);padding:14px;border-radius:12px;font-size:12px;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <span>Maintenance Mode</span>
           <button id="maintToggleBtn" onclick="toggleManagementFlag('maintenance_mode')" class="btn btn-dark btn-sm">OFF</button>
@@ -407,7 +659,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
       </div>
 
       <div class="table-wrap">
-        <h4 style="font-size:13px;color:var(--cyan);margin-bottom:8px;">Registered User IDs</h4>
+        <h4 style="font-size:13px;color:var(--primary);margin-bottom:8px;">Enlisted Slayer User IDs</h4>
         <table>
           <thead><tr><th>User ID</th><th>Hosted Bots</th><th>Running</th><th>Last Login</th><th>Action</th></tr></thead>
           <tbody id="ownerUsersTable"></tbody>
@@ -415,7 +667,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
       </div>
 
       <div class="table-wrap">
-        <h4 style="font-size:13px;color:var(--red);margin-bottom:8px;">All Hosted Sessions Globally</h4>
+        <h4 style="font-size:13px;color:var(--secondary);margin-bottom:8px;">All Hosted Sessions Globally</h4>
         <table>
           <thead><tr><th>Bot ID</th><th>Owner ID</th><th>Bot Name</th><th>Status</th><th>CPU / RAM</th><th>Action</th></tr></thead>
           <tbody id="ownerBotsTable"></tbody>
@@ -423,7 +675,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
       </div>
     </section>
 
-    <!-- MOBILE GLASSMORPHISM NAVIGATION BAR -->
+    <!-- MOBILE DEMON SLAYER GLASSMORPHISM NAVIGATION BAR -->
     <nav class="mobile-glass-nav" aria-label="Mobile Navigation">
       <button type="button" class="nav-pill active" data-target="sec-stats" onclick="navJump('sec-stats', this)">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -434,47 +686,68 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
 
       <button type="button" class="nav-pill" data-target="sec-deploy" onclick="navJump('sec-deploy', this)">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-          <polyline points="17 8 12 3 7 8"></polyline>
-          <line x1="12" y1="3" x2="12" y2="15"></line>
+          <path d="M14.5 17.5L3 6V3h3l11.5 11.5"></path>
+          <path d="M13 19l6-6"></path>
+          <path d="M16 16l4 4"></path>
+          <path d="M19 21l2-2"></path>
         </svg>
-        <span>Deploy</span>
+        <span>Forge</span>
       </button>
 
       <button type="button" class="nav-pill" data-target="sec-bots" onclick="navJump('sec-bots', this)">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="4" width="18" height="16" rx="3"></rect>
-          <circle cx="9" cy="10" r="1.5"></circle>
-          <circle cx="15" cy="10" r="1.5"></circle>
-          <path d="M9 15h6"></path>
+          <circle cx="12" cy="12" r="9"></circle>
+          <path d="M12 7v10M7 12h10"></path>
         </svg>
         <span>My Bots</span>
       </button>
 
       <button type="button" class="nav-pill" onclick="cycleAnimeTheme()">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+          <path d="M12 2c.5 4.5-2 6.5-2 10a4 4 0 0 0 8 0c0-2.5-1.5-4.5-1.5-7 2.5 1.5 4.5 4.5 4.5 8a9 9 0 1 1-18 0c0-4.5 3.5-8.5 9-11z"></path>
         </svg>
-        <span>Theme</span>
+        <span>Breathing</span>
       </button>
 
       <button type="button" id="mobileOwnerNavBtn" class="nav-pill hidden" onclick="toggleOwnerPanel(); setActivePill(this);">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2l3 7 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"></path>
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
         </svg>
-        <span>Owner</span>
+        <span>Hashira</span>
       </button>
     </nav>
   </div>
 
-  <!-- Live Logs Modal -->
+  <!-- KASUGAI CROW INTERACTIVE TERMINAL MODAL (PHONE -> OTP -> 2FA -> DEPLOYED) -->
   <div id="logModal" class="modal-overlay hidden">
-    <div class="glass" style="max-width:740px;width:100%;padding:20px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <h4 style="color:var(--cyan);font-weight:700;">Live Runtime Logs</h4>
-        <button onclick="document.getElementById('logModal').classList.add('hidden')" class="btn btn-dark btn-sm">Close</button>
+    <div class="glass" data-kanji="鴉" style="max-width:740px;width:100%;padding:18px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;">
+        <div>
+          <h4 style="color:var(--primary);font-weight:700;font-size:15px;">Kasugai Terminal — <span id="termBotTitle">Userbot</span></h4>
+          <p style="font-size:11px;color:var(--muted);">Enter Phone, Telegram OTP Code, or 2FA Password below when prompted</p>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button type="button" onclick="sendCtrlC()" class="btn btn-red btn-sm" title="Send Ctrl+C Interrupt">Ctrl+C</button>
+          <button type="button" onclick="closeTerminal()" class="btn btn-dark btn-sm">Close</button>
+        </div>
       </div>
-      <pre id="logOutput" class="mono" style="background:#04060e;padding:14px;border-radius:12px;height:320px;overflow-y:auto;font-size:12px;color:var(--green);white-space:pre-wrap;"></pre>
+
+      <!-- Auth Stage Progress Indicators -->
+      <div class="term-steps">
+        <span id="step-phone" class="step-chip active">1. Phone / Token</span>
+        <span id="step-otp" class="step-chip">2. OTP Code</span>
+        <span id="step-2fa" class="step-chip">3. 2FA Password</span>
+        <span id="step-live" class="step-chip">4. Deployed</span>
+      </div>
+
+      <pre id="logOutput" class="mono term-screen"></pre>
+
+      <!-- Real-Time Stdin Input Bar -->
+      <form onsubmit="submitTerminalInput(event)" class="term-input-bar">
+        <input id="termStdinInput" type="text" autocomplete="off" placeholder="Type Phone (+91...), OTP code, or 2FA password..." class="mono" style="font-size:14px;padding:11px 12px;" />
+        <button type="button" id="secretToggleBtn" onclick="toggleSecretMode()" class="btn btn-purple btn-sm" title="Mask 2FA Password">2FA Mask: OFF</button>
+        <button type="submit" id="termSendBtn" class="btn btn-primary btn-sm" style="padding:11px 16px;">Send ↵</button>
+      </form>
     </div>
   </div>
 
@@ -482,7 +755,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
   <div id="settingsModal" class="modal-overlay hidden">
     <div class="glass" style="max-width:520px;width:100%;padding:20px;display:flex;flex-direction:column;gap:12px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
-        <h4 style="color:var(--purple);font-weight:700;">Userbot Settings & .env</h4>
+        <h4 style="color:var(--secondary);font-weight:700;">Nichirin Bot Settings & .env</h4>
         <button onclick="document.getElementById('settingsModal').classList.add('hidden')" class="btn btn-dark btn-sm">Close</button>
       </div>
       <input type="hidden" id="editBotId" />
@@ -497,30 +770,35 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
   </div>
 
   <script>
-    // Anime Theme Switcher (Cyber / Sakura / Shinobi)
-    const ANIME_THEMES = [
-      { id: 'cyber', label: 'Cyber' },
-      { id: 'sakura', label: 'Sakura' },
-      { id: 'shinobi', label: 'Shinobi' }
+    // Demon Slayer Breathing Style Switcher
+    const BREATHING_THEMES = [
+      { id: 'hinokami', label: 'Hinokami', c1: 'rgba(239,68,68,0.55)', c2: 'rgba(249,115,22,0.45)', line1: '#ef4444', line2: '#f97316' },
+      { id: 'water', label: 'Water', c1: 'rgba(14,165,233,0.55)', c2: 'rgba(56,189,248,0.45)', line1: '#0ea5e9', line2: '#38bdf8' },
+      { id: 'thunder', label: 'Thunder', c1: 'rgba(250,204,21,0.6)', c2: 'rgba(245,158,11,0.45)', line1: '#eab308', line2: '#f59e0b' },
+      { id: 'wisteria', label: 'Wisteria', c1: 'rgba(236,72,153,0.55)', c2: 'rgba(168,85,247,0.48)', line1: '#ec4899', line2: '#a855f7' }
     ];
     let themeIdx = 0;
 
+    function getCurrentBreathing() {
+      return BREATHING_THEMES[themeIdx] || BREATHING_THEMES[0];
+    }
+
     function applyAnimeTheme(themeId) {
       document.body.setAttribute('data-theme', themeId);
-      localStorage.setItem('siduser_anime_theme', themeId);
-      const found = ANIME_THEMES.find(t => t.id === themeId) || ANIME_THEMES[0];
-      themeIdx = ANIME_THEMES.indexOf(found);
+      localStorage.setItem('siduser_ds_theme', themeId);
+      const found = BREATHING_THEMES.find(t => t.id === themeId) || BREATHING_THEMES[0];
+      themeIdx = BREATHING_THEMES.indexOf(found);
       const chip = document.getElementById('themeChipBtn');
-      if (chip) chip.innerText = `Theme: ${found.label}`;
+      if (chip) chip.innerText = `Breathing: ${found.label}`;
+      dots.forEach((d, idx) => {
+        d.c = idx % 2 === 0 ? found.c1 : found.c2;
+      });
     }
 
     function cycleAnimeTheme() {
-      themeIdx = (themeIdx + 1) % ANIME_THEMES.length;
-      applyAnimeTheme(ANIME_THEMES[themeIdx].id);
+      themeIdx = (themeIdx + 1) % BREATHING_THEMES.length;
+      applyAnimeTheme(BREATHING_THEMES[themeIdx].id);
     }
-
-    const savedTheme = localStorage.getItem('siduser_anime_theme');
-    if (savedTheme) applyAnimeTheme(savedTheme);
 
     // Mobile Glassmorphism Navigation Helper
     function setActivePill(btn) {
@@ -537,34 +815,44 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
       }
     }
 
-    // Lightweight Ambient Particle Canvas (Sakura / Neon Orbs)
+    // Hinokami Embers / Water Droplets / Thunder Sparks Canvas
     const bgCanvas = document.getElementById('bgCanvas');
     const bgCtx = bgCanvas.getContext('2d');
     let dots = [];
     function resizeBg() { bgCanvas.width = window.innerWidth; bgCanvas.height = window.innerHeight; }
     window.addEventListener('resize', resizeBg);
     resizeBg();
-    for (let i = 0; i < 24; i++) {
+    for (let i = 0; i < 28; i++) {
       dots.push({
-        x: Math.random() * bgCanvas.width, y: Math.random() * bgCanvas.height,
-        r: Math.random() * 2.2 + 1, dx: (Math.random() - 0.5) * 0.4, dy: (Math.random() - 0.5) * 0.4,
-        c: i % 2 === 0 ? 'rgba(34,211,238,0.35)' : 'rgba(244,114,182,0.35)'
+        x: Math.random() * bgCanvas.width,
+        y: Math.random() * bgCanvas.height,
+        r: Math.random() * 2.4 + 1,
+        dx: (Math.random() - 0.5) * 0.45,
+        dy: -(Math.random() * 0.55 + 0.15), // Rising embers effect
+        c: i % 2 === 0 ? BREATHING_THEMES[0].c1 : BREATHING_THEMES[0].c2
       });
     }
     function renderBg() {
       bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
       for (const d of dots) {
-        d.x += d.dx; d.y += d.dy;
-        if (d.x < 0 || d.x > bgCanvas.width) d.dx *= -1;
-        if (d.y < 0 || d.y > bgCanvas.height) d.dy *= -1;
-        bgCtx.beginPath(); bgCtx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
-        bgCtx.fillStyle = d.c; bgCtx.fill();
+        d.x += d.dx;
+        d.y += d.dy;
+        if (d.x < 0) d.x = bgCanvas.width;
+        if (d.x > bgCanvas.width) d.x = 0;
+        if (d.y < 0) { d.y = bgCanvas.height; d.x = Math.random() * bgCanvas.width; }
+        bgCtx.beginPath();
+        bgCtx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+        bgCtx.fillStyle = d.c;
+        bgCtx.fill();
       }
       requestAnimationFrame(renderBg);
     }
     renderBg();
 
-    // Zero-Dependency Native Canvas Dual-Line Telemetry Graph
+    const savedTheme = localStorage.getItem('siduser_ds_theme');
+    if (savedTheme) applyAnimeTheme(savedTheme);
+
+    // Native Canvas Telemetry Graph (Color-matched to Breathing Style)
     function drawTelemetryGraph(history) {
       const canvas = document.getElementById('telemetryChart');
       if (!canvas || !history || history.length < 2) return;
@@ -588,7 +876,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
       const drawSeries = (key, color) => {
         ctx.beginPath();
         ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2.2;
         history.forEach((pt, idx) => {
           const x = (idx / (history.length - 1)) * w;
           const val = Math.min(100, Math.max(0, pt[key] || 0));
@@ -598,15 +886,63 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
         ctx.stroke();
       };
 
-      drawSeries('sys_cpu', '#22d3ee');
-      drawSeries('sys_ram', '#a855f7');
+      const theme = getCurrentBreathing();
+      drawSeries('sys_cpu', theme.line1);
+      drawSeries('sys_ram', theme.line2);
     }
 
-    let currentUserId = null, currentMgmt = {};
+    // Interactive Terminal State & Prompt Stage Detection
+    let currentUserId = null, currentMgmt = {}, activeTerminalBotId = null, secretInputMode = false;
+
+    function detectAuthStage(fullText) {
+      const tail = fullText.slice(-350).toLowerCase();
+      const inp = document.getElementById('termStdinInput');
+      const sPhone = document.getElementById('step-phone');
+      const sOtp = document.getElementById('step-otp');
+      const s2fa = document.getElementById('step-2fa');
+      const sLive = document.getElementById('step-live');
+
+      [sPhone, sOtp, s2fa, sLive].forEach(el => el.classList.remove('active', 'done'));
+
+      if (tail.includes('signed in successfully') || tail.includes('userbot started') || tail.includes('client started') || tail.includes('logged in as')) {
+        [sPhone, sOtp, s2fa].forEach(el => el.classList.add('done'));
+        sLive.classList.add('done');
+        inp.placeholder = 'Userbot deployed! Type command or press Close...';
+        if (secretInputMode) setSecretMode(false);
+      } else if (tail.includes('password') || tail.includes('2fa') || tail.includes('two-step')) {
+        sPhone.classList.add('done');
+        sOtp.classList.add('done');
+        s2fa.classList.add('active');
+        inp.placeholder = 'Enter your Telegram 2FA Password...';
+        if (!secretInputMode) setSecretMode(true);
+      } else if (tail.includes('code') || tail.includes('otp') || tail.includes('verification')) {
+        sPhone.classList.add('done');
+        sOtp.classList.add('active');
+        inp.placeholder = 'Enter the Telegram OTP Code received...';
+        if (secretInputMode) setSecretMode(false);
+      } else {
+        sPhone.classList.add('active');
+        inp.placeholder = 'Type Phone (+91...), OTP code, or 2FA password...';
+      }
+    }
+
+    function setSecretMode(enabled) {
+      secretInputMode = enabled;
+      const inp = document.getElementById('termStdinInput');
+      const btn = document.getElementById('secretToggleBtn');
+      inp.type = enabled ? 'password' : 'text';
+      btn.innerText = enabled ? '2FA Mask: ON' : '2FA Mask: OFF';
+    }
+
+    function toggleSecretMode() {
+      setSecretMode(!secretInputMode);
+      document.getElementById('termStdinInput').focus();
+    }
 
     function initSocket() {
       if (typeof io === 'undefined') return;
       const socket = io();
+
       socket.on('telemetry_update', (data) => {
         document.getElementById('sysCpuVal').innerText = data.sys_cpu + '%';
         document.getElementById('sysRamVal').innerText = data.sys_ram + '%';
@@ -627,6 +963,64 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
         }
         document.getElementById('userTotalCpu').innerText = myCpu.toFixed(1) + '%';
         document.getElementById('userTotalRam').innerText = myRam.toFixed(1) + ' MB';
+      });
+
+      socket.on('bot_terminal', (payload) => {
+        if (!activeTerminalBotId || payload.bot_id !== activeTerminalBotId) return;
+        const modal = document.getElementById('logModal');
+        if (modal.classList.contains('hidden')) return;
+        const out = document.getElementById('logOutput');
+        out.textContent += payload.chunk;
+        out.scrollTop = out.scrollHeight;
+        detectAuthStage(out.textContent);
+      });
+    }
+
+    async function viewLogs(botId, botName = '') {
+      activeTerminalBotId = botId;
+      if (botName) document.getElementById('termBotTitle').innerText = botName;
+      const res = await fetch(`/api/bot/${botId}/logs`);
+      const data = await res.json();
+      if (data.bot_name) document.getElementById('termBotTitle').innerText = data.bot_name;
+      const out = document.getElementById('logOutput');
+      out.textContent = data.logs || 'Kasugai Terminal ready...\n';
+      document.getElementById('logModal').classList.remove('hidden');
+      out.scrollTop = out.scrollHeight;
+      detectAuthStage(out.textContent);
+      setTimeout(() => document.getElementById('termStdinInput').focus(), 100);
+    }
+
+    function closeTerminal() {
+      document.getElementById('logModal').classList.add('hidden');
+      activeTerminalBotId = null;
+      setSecretMode(false);
+    }
+
+    async function submitTerminalInput(e) {
+      e.preventDefault();
+      if (!activeTerminalBotId) return;
+      const inp = document.getElementById('termStdinInput');
+      const val = inp.value;
+      inp.value = '';
+
+      const res = await fetch(`/api/bot/${activeTerminalBotId}/stdin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input: val, is_secret: secretInputMode })
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        alert(data.error || 'Could not send input to terminal.');
+      }
+      inp.focus();
+    }
+
+    async function sendCtrlC() {
+      if (!activeTerminalBotId) return;
+      await fetch(`/api/bot/${activeTerminalBotId}/stdin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ctrl_c: true })
       });
     }
 
@@ -653,7 +1047,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
       e.preventDefault();
       const btn = document.getElementById('loginBtn');
       btn.disabled = true;
-      btn.innerText = 'Loading...';
+      btn.innerText = 'Concentrating...';
 
       const res = await fetch('/api/login', {
         method: 'POST',
@@ -665,7 +1059,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
       });
       const data = await res.json();
       btn.disabled = false;
-      btn.innerText = 'Open Dashboard';
+      btn.innerText = 'Enter Demon Slayer Corps';
 
       if (data.ok) location.reload();
       else alert(data.error || 'Invalid User ID');
@@ -680,7 +1074,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
       e.preventDefault();
       const btn = document.getElementById('deployBtn');
       btn.disabled = true;
-      btn.innerText = 'Deploying...';
+      btn.innerText = 'Forging...';
 
       const formData = new FormData();
       formData.append('bot_name', document.getElementById('botName').value);
@@ -693,11 +1087,12 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
       const res = await fetch('/api/deploy', { method: 'POST', body: formData });
       const data = await res.json();
       btn.disabled = false;
-      btn.innerText = 'Launch Userbot';
+      btn.innerText = 'Ignite & Open Terminal';
 
       if (data.ok) {
         document.getElementById('deployForm').reset();
-        loadMyBots();
+        await loadMyBots();
+        viewLogs(data.bot_id, data.bot_name);
       } else {
         alert(data.error);
       }
@@ -711,7 +1106,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
       document.getElementById('userBotCount').innerText = data.bots.length;
       const grid = document.getElementById('myBotsGrid');
       if (data.bots.length === 0) {
-        grid.innerHTML = `<div class="card full-span" style="font-size:13px;color:var(--muted);">No userbots hosted on this User ID yet. Upload files above to start.</div>`;
+        grid.innerHTML = `<div class="card full-span" style="font-size:13px;color:var(--muted);">No Nichirin userbots forged on this Slayer ID yet. Upload files above to start.</div>`;
         return;
       }
 
@@ -721,20 +1116,20 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
             <div>
               <h4 style="font-size:15px;font-weight:700;">${b.bot_name}</h4>
               <p class="mono" style="font-size:11px;color:var(--muted);margin-top:2px;">${b.bot_id} • ${b.entry_file}</p>
-              <p style="font-size:11px;color:#64748b;margin-top:4px;">Files: ${(b.files || []).slice(0, 4).join(', ')}${(b.files || []).length > 4 ? '...' : ''}</p>
+              <p style="font-size:11px;color:#71717a;margin-top:4px;">Files: ${(b.files || []).slice(0, 4).join(', ')}${(b.files || []).length > 4 ? '...' : ''}</p>
             </div>
             <span id="status-${b.bot_id}" class="badge ${b.status === 'RUNNING' ? 'badge-run' : 'badge-wait'}">${b.status}</span>
           </div>
           <div class="mono" style="display:flex;gap:8px;font-size:12px;">
-            <span id="cpu-${b.bot_id}" style="background:#060a18;padding:5px 10px;border-radius:8px;color:var(--cyan);">${b.cpu}% CPU</span>
-            <span id="ram-${b.bot_id}" style="background:#060a18;padding:5px 10px;border-radius:8px;color:var(--purple);">${b.ram_mb} MB</span>
+            <span id="cpu-${b.bot_id}" style="background:#08060e;padding:5px 10px;border-radius:8px;color:var(--primary);">${b.cpu}% CPU</span>
+            <span id="ram-${b.bot_id}" style="background:#08060e;padding:5px 10px;border-radius:8px;color:var(--secondary);">${b.ram_mb} MB</span>
           </div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;padding-top:10px;border-top:1px solid rgba(148,163,184,0.15);">
-            <button onclick="viewLogs('${b.bot_id}')" class="btn btn-dark btn-sm">Logs</button>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;padding-top:10px;border-top:1px solid rgba(161,161,170,0.16);">
+            <button onclick="viewLogs('${b.bot_id}', '${b.bot_name.replace(/'/g, "\\'")}')" class="btn btn-primary btn-sm">Terminal / OTP</button>
             <button onclick="openSettings('${b.bot_id}')" class="btn btn-purple btn-sm">Settings</button>
             <button onclick="botAction('${b.bot_id}', 'restart')" class="btn btn-dark btn-sm">Restart</button>
             <button onclick="botAction('${b.bot_id}', 'stop')" class="btn btn-amber btn-sm">Stop</button>
-            <button onclick="botAction('${b.bot_id}', 'terminate')" class="btn btn-red btn-sm" style="margin-left:auto;">Terminate</button>
+            <button onclick="botAction('${b.bot_id}', 'terminate')" class="btn btn-red btn-sm" style="margin-left:auto;">Slay</button>
           </div>
         </div>
       `).join('');
@@ -748,16 +1143,8 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
         body: JSON.stringify({ action })
       });
       loadMyBots();
+      if (action === 'restart') viewLogs(botId);
       if (!document.getElementById('ownerSection').classList.contains('hidden')) loadOwnerOverview();
-    }
-
-    async function viewLogs(botId) {
-      const res = await fetch(`/api/bot/${botId}/logs`);
-      const data = await res.json();
-      const out = document.getElementById('logOutput');
-      out.innerText = data.logs || 'No logs available.';
-      document.getElementById('logModal').classList.remove('hidden');
-      out.scrollTop = out.scrollHeight;
     }
 
     async function openSettings(botId) {
@@ -808,7 +1195,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
 
       document.getElementById('ownerUsersTable').innerHTML = data.users.map(u => `
         <tr>
-          <td class="mono" style="color:var(--cyan);font-weight:700;">${u.user_id}</td>
+          <td class="mono" style="color:var(--primary);font-weight:700;">${u.user_id}</td>
           <td><b>${u.hosted_count}</b></td>
           <td style="color:var(--green);">${u.running_count}</td>
           <td style="color:var(--muted);">${u.last_login}</td>
@@ -823,13 +1210,13 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
       document.getElementById('ownerBotsTable').innerHTML = data.all_bots.map(b => `
         <tr>
           <td class="mono">${b.bot_id}</td>
-          <td class="mono" style="color:var(--cyan);">${b.owner_id}</td>
+          <td class="mono" style="color:var(--secondary);">${b.owner_id}</td>
           <td>${b.bot_name}</td>
           <td>${b.status}</td>
           <td class="mono">${b.cpu}% / ${b.ram_mb}MB</td>
           <td style="display:flex;gap:6px;">
-            <button onclick="viewLogs('${b.bot_id}')" class="btn btn-dark btn-sm">Logs</button>
-            <button onclick="botAction('${b.bot_id}', 'terminate')" class="btn btn-red btn-sm">Terminate</button>
+            <button onclick="viewLogs('${b.bot_id}', '${b.bot_name.replace(/'/g, "\\'")}')" class="btn btn-dark btn-sm">Terminal</button>
+            <button onclick="botAction('${b.bot_id}', 'terminate')" class="btn btn-red btn-sm">Slay</button>
           </td>
         </tr>
       `).join('');
