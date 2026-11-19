@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SidUser Cloud — Multi-Process Telegram Userbot Hoster</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: #070913;
+      color: #f1f5f9;
+      overflow-x: hidden;
+    }
+
+    /* Animated Anime Backdrop */
+    .anime-bg {
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      background: 
+        linear-gradient(135deg, rgba(7, 9, 19, 0.88), rgba(15, 10, 35, 0.85)),
+        url('https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=1920&q=80') center/cover no-repeat;
+      animation: slowZoom 28s ease-in-out infinite alternate;
+    }
+
+    @keyframes slowZoom {
+      0% { transform: scale(1); }
+      100% { transform: scale(1.08); }
+    }
+
+    .neon-orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(110px);
+      z-index: -1;
+      opacity: 0.45;
+      animation: floatOrb 12s infinite alternate ease-in-out;
+    }
+
+    @keyframes floatOrb {
+      0% { transform: translate(0, 0); }
+      100% { transform: translate(40px, -30px); }
+    }
+
+    .glass {
+      background: rgba(17, 22, 42, 0.58);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(139, 92, 246, 0.25);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    }
+
+    .glass-card {
+      background: rgba(23, 30, 56, 0.65);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .glass-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(168, 85, 247, 0.65);
+      box-shadow: 0 12px 28px rgba(139, 92, 246, 0.25);
+    }
+
+    .mono { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div class="anime-bg"></div>
+  <div class="neon-orb w-96 h-96 bg-purple-600 top-10 left-10"></div>
+  <div class="neon-orb w-96 h-96 bg-cyan-500 bottom-10 right-10"></div>
+
+  <!-- LOGIN GATE MODAL -->
+  <div id="loginModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
+    <div class="glass rounded-3xl max-w-md w-full p-8 border border-purple-500/40 relative overflow-hidden">
+      <div class="flex items-center gap-4 mb-6">
+        <img src="https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&w=200&q=80" alt="Anime Avatar" class="w-16 h-16 rounded-2xl object-cover border-2 border-cyan-400 shadow-lg" />
+        <div>
+          <h1 class="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">SidUser Hoster</h1>
+          <p class="text-xs text-slate-400">Multi-Process Telegram Userbot Cloud</p>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="text-xs uppercase tracking-wider text-cyan-300 font-semibold">Telegram Username *</label>
+          <input id="loginUsername" type="text" placeholder="@yourusername" class="w-full mt-1 px-4 py-3 rounded-xl bg-slate-950/70 border border-slate-700 focus:border-cyan-400 outline-none text-sm" />
+        </div>
+        <div>
+          <label class="text-xs uppercase tracking-wider text-purple-300 font-semibold">Display Name</label>
+          <input id="loginDisplayName" type="text" placeholder="Your Name" class="w-full mt-1 px-4 py-3 rounded-xl bg-slate-950/70 border border-slate-700 focus:border-purple-400 outline-none text-sm" />
+        </div>
+        <div>
+          <label class="text-xs uppercase tracking-wider text-slate-400 font-semibold">Owner Key (Optional — Admin Only)</label>
+          <input id="loginOwnerKey" type="password" placeholder="Leave blank for standard user" class="w-full mt-1 px-4 py-3 rounded-xl bg-slate-950/70 border border-slate-700 focus:border-pink-400 outline-none text-sm" />
+        </div>
+        <button onclick="handleLogin()" class="w-full py-3.5 rounded-xl font-semibold bg-gradient-to-r from-cyan-500 to-purple-600 hover:opacity-90 transition shadow-lg shadow-purple-600/30">
+          Enter Isolated Dashboard
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN DASHBOARD -->
+  <div id="dashboardApp" class="hidden max-w-7xl mx-auto px-4 py-6 space-y-6">
+    <!-- Top Navbar -->
+    <header class="glass rounded-2xl px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <img src="https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&w=120&q=80" class="w-11 h-11 rounded-xl object-cover border border-purple-400" />
+        <div>
+          <h2 class="text-xl font-bold tracking-tight text-white">SidUser <span class="text-cyan-400">Engine v3</span></h2>
+          <p class="text-xs text-slate-400">Logged in as <span id="navUserBadge" class="text-purple-300 font-semibold"></span></p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button id="ownerTabBtn" onclick="toggleOwnerPanel()" class="hidden px-4 py-2 rounded-xl text-xs font-semibold bg-amber-500/20 border border-amber-400/50 text-amber-300 hover:bg-amber-500/30 transition">
+          👑 Owner Control Panel
+        </button>
+        <button onclick="handleLogout()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-rose-500/20 border border-rose-500/40 text-rose-300 hover:bg-rose-500/30 transition">
+          Logout
+        </button>
+      </div>
+    </header>
+
+    <!-- Live System Telemetry & Graphics Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="glass rounded-2xl p-6 flex flex-col justify-between">
+        <div>
+          <span class="text-xs uppercase tracking-wider text-cyan-400 font-semibold">Your Hosted Instances</span>
+          <div class="mt-3 flex items-baseline gap-3">
+            <span id="userBotCount" class="text-4xl font-bold text-white">0</span>
+            <span class="text-xs text-slate-400">isolated userbot containers</span>
+          </div>
+        </div>
+        <div class="mt-6 grid grid-cols-2 gap-3 text-xs">
+          <div class="p-3 rounded-xl bg-slate-900/70 border border-slate-800">
+            <p class="text-slate-400">Node CPU Load</p>
+            <p id="sysCpuVal" class="text-lg font-bold text-cyan-400 mono mt-1">0.0%</p>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/70 border border-slate-800">
+            <p class="text-slate-400">Node RAM Load</p>
+            <p id="sysRamVal" class="text-lg font-bold text-purple-400 mono mt-1">0.0%</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass rounded-2xl p-6 lg:col-span-2">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs uppercase tracking-wider text-purple-300 font-semibold">Real-Time Performance Telemetry</span>
+          <span class="text-xs text-emerald-400 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> Live Socket Stream
+          </span>
+        </div>
+        <div class="h-40">
+          <canvas id="perfChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Deploy New Userbot Section -->
+    <section class="glass rounded-2xl p-6">
+      <h3 class="text-lg font-bold text-white mb-4">Deploy New Telegram Userbot (Auto-Pip Enabled)</h3>
+      <form id="deployForm" onsubmit="deployUserbot(event)" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <input id="botName" type="text" required placeholder="Userbot Name (e.g. ToxicUB)" class="px-4 py-3 rounded-xl bg-slate-950/70 border border-slate-700 text-sm outline-none focus:border-cyan-400" />
+        <input id="entryFile" type="text" value="main.py" placeholder="Entry File (main.py)" class="px-4 py-3 rounded-xl bg-slate-950/70 border border-slate-700 text-sm mono outline-none focus:border-cyan-400" />
+        <input id="botFiles" type="file" multiple required class="px-3 py-2.5 rounded-xl bg-slate-950/70 border border-slate-700 text-xs text-slate-300" />
+        <button type="submit" id="deployBtn" class="py-3 px-6 rounded-xl font-semibold bg-gradient-to-r from-cyan-500 to-purple-600 hover:opacity-90 transition text-sm">
+          🚀 Launch & Auto-Install
+        </button>
+        <textarea id="envVars" rows="2" placeholder="Optional .env variables (e.g. API_ID=12345
+API_HASH=abcdef
+STRING_SESSION=...)" class="md:col-span-4 px-4 py-2.5 rounded-xl bg-slate-950/70 border border-slate-700 text-xs mono outline-none focus:border-purple-400"></textarea>
+      </form>
+    </section>
+
+    <!-- User's Isolated Hosted Userbots -->
+    <section class="space-y-4">
+      <h3 class="text-lg font-bold text-white">Your Active Userbots</h3>
+      <div id="myBotsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+    </section>
+
+    <!-- OWNER CONTROL PANEL (Hidden for normal users) -->
+    <section id="ownerSection" class="hidden glass rounded-2xl p-6 border border-amber-400/40 space-y-6">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h3 class="text-xl font-bold text-amber-300">👑 Owner Master Control & JSON Telemetry</h3>
+          <p class="text-xs text-slate-400">Monitor all users, terminate any session globally, or download complete JSON & bot archives.</p>
+        </div>
+        <a href="/api/owner/download-all" class="px-5 py-2.5 rounded-xl text-xs font-bold bg-emerald-500 text-slate-950 hover:bg-emerald-400 transition">
+          ⬇️ Download All Data (.ZIP)
+        </a>
+      </div>
+
+      <!-- Registered Users Table -->
+      <div class="overflow-x-auto">
+        <h4 class="text-sm font-semibold text-cyan-300 mb-2">Registered Users & Hosted Counts</h4>
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="border-b border-slate-700 text-slate-400">
+              <th class="py-2 px-3">Telegram Username</th>
+              <th class="py-2 px-3">Display Name</th>
+              <th class="py-2 px-3">Hosted Bots</th>
+              <th class="py-2 px-3">Active Now</th>
+              <th class="py-2 px-3">Last Login</th>
+            </tr>
+          </thead>
+          <tbody id="ownerUsersTable" class="divide-y divide-slate-800"></tbody>
+        </table>
+      </div>
+
+      <!-- Global Active Sessions -->
+      <div class="overflow-x-auto">
+        <h4 class="text-sm font-semibold text-rose-300 mb-2">All Hosted Sessions Across Platform</h4>
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="border-b border-slate-700 text-slate-400">
+              <th class="py-2 px-3">Bot ID</th>
+              <th class="py-2 px-3">Owner</th>
+              <th class="py-2 px-3">Bot Name</th>
+              <th class="py-2 px-3">Status</th>
+              <th class="py-2 px-3">CPU / RAM</th>
+              <th class="py-2 px-3">Owner Action</th>
+            </tr>
+          </thead>
+          <tbody id="ownerBotsTable" class="divide-y divide-slate-800"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- CONSOLE LOG MODAL -->
+  <div id="logModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    <div class="glass rounded-2xl max-w-3xl w-full p-6 border border-cyan-500/40">
+      <div class="flex justify-between items-center mb-3">
+        <h4 class="font-bold text-cyan-300">Live Runtime Console</h4>
+        <button onclick="document.getElementById('logModal').classList.add('hidden')" class="text-xs px-3 py-1 rounded-lg bg-slate-800 text-slate-300">Close</button>
+      </div>
+      <pre id="logOutput" class="mono text-xs bg-slate-950 p-4 rounded-xl h-80 overflow-y-auto text-emerald-300 whitespace-pre-wrap"></pre>
+    </div>
+  </div>
+
+  <script>
+    const socket = io();
+    let perfChart;
+
+    function initChart() {
+      const ctx = document.getElementById('perfChart').getContext('2d');
+      perfChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            { label: 'CPU %', data: [], borderColor: '#22d3ee', backgroundColor: 'rgba(34,211,238,0.12)', tension: 0.35, fill: true },
+            { label: 'RAM %', data: [], borderColor: '#a855f7', backgroundColor: 'rgba(168,85,247,0.12)', tension: 0.35, fill: true }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#94a3b8', font: { size: 10 } } },
+            x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } }
+          },
+          plugins: { legend: { labels: { color: '#e2e8f0', font: { size: 11 } } } }
+        }
+      });
+    }
+
+    socket.on('telemetry_update', (data) => {
+      document.getElementById('sysCpuVal').innerText = data.sys_cpu + '%';
+      document.getElementById('sysRamVal').innerText = data.sys_ram + '%';
+
+      if (perfChart && data.history) {
+        perfChart.data.labels = data.history.map(h => h.ts);
+        perfChart.data.datasets[0].data = data.history.map(h => h.sys_cpu);
+        perfChart.data.datasets[1].data = data.history.map(h => h.sys_ram);
+        perfChart.update('none');
+      }
+
+      for (const [botId, m] of Object.entries(data.bots || {})) {
+        const cpuEl = document.getElementById(`cpu-${botId}`);
+        const ramEl = document.getElementById(`ram-${botId}`);
+        const stEl = document.getElementById(`status-${botId}`);
+        if (cpuEl) cpuEl.innerText = `${m.cpu}% CPU`;
+        if (ramEl) ramEl.innerText = `${m.ram_mb} MB`;
+        if (stEl) stEl.innerText = m.status;
+      }
+    });
+
+    async function checkAuth() {
+      const res = await fetch('/api/me');
+      const data = await res.json();
+      if (data.authenticated) {
+        document.getElementById('loginModal').classList.add('hidden');
+        document.getElementById('dashboardApp').classList.remove('hidden');
+        document.getElementById('navUserBadge').innerText = `@${data.username} (${data.display_name})`;
+        if (data.is_owner) {
+          document.getElementById('ownerTabBtn').classList.remove('hidden');
+        }
+        initChart();
+        loadMyBots();
+      }
+    }
+
+    async function handleLogin() {
+      const tg_username = document.getElementById('loginUsername').value;
+      const display_name = document.getElementById('loginDisplayName').value;
+      const owner_key = document.getElementById('loginOwnerKey').value;
+
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tg_username, display_name, owner_key })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        location.reload();
+      } else {
+        alert(data.error || 'Login failed');
+      }
+    }
+
+    async function handleLogout() {
+      await fetch('/api/logout', { method: 'POST' });
+      location.reload();
+    }
+
+    async function deployUserbot(e) {
+      e.preventDefault();
+      const btn = document.getElementById('deployBtn');
+      btn.disabled = true;
+      btn.innerText = '⏳ Installing & Starting...';
+
+      const formData = new FormData();
+      formData.append('bot_name', document.getElementById('botName').value);
+      formData.append('entry_file', document.getElementById('entryFile').value);
+      formData.append('env_vars', document.getElementById('envVars').value);
+      for (const file of document.getElementById('botFiles').files) {
+        formData.append('files', file);
+      }
+
+      const res = await fetch('/api/deploy', { method: 'POST', body: formData });
+      const data = await res.json();
+      btn.disabled = false;
+      btn.innerText = '🚀 Launch & Auto-Install';
+
+      if (data.ok) {
+        document.getElementById('deployForm').reset();
+        loadMyBots();
+      } else {
+        alert(data.error);
+      }
+    }
+
+    async function loadMyBots() {
+      const res = await fetch('/api/my-bots');
+      const data = await res.json();
+      if (!data.ok) return;
+
+      document.getElementById('userBotCount').innerText = data.bots.length;
+      const grid = document.getElementById('myBotsGrid');
+      grid.innerHTML = data.bots.map(b => `
+        <div class="glass-card rounded-2xl p-5 flex flex-col justify-between gap-4">
+          <div class="flex justify-between items-start">
+            <div>
+              <h4 class="font-bold text-white text-base">${b.bot_name}</h4>
+              <p class="text-xs text-slate-400 mono">${b.bot_id} • ${b.entry_file}</p>
+            </div>
+            <span id="status-${b.bot_id}" class="px-3 py-1 rounded-full text-xs font-bold ${b.status === 'RUNNING' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}">${b.status}</span>
+          </div>
+          <div class="flex gap-3 text-xs mono">
+            <span id="cpu-${b.bot_id}" class="px-2.5 py-1 rounded-lg bg-slate-900 text-cyan-300">${b.cpu}% CPU</span>
+            <span id="ram-${b.bot_id}" class="px-2.5 py-1 rounded-lg bg-slate-900 text-purple-300">${b.ram_mb} MB</span>
+          </div>
+          <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800">
+            <button onclick="viewLogs('${b.bot_id}')" class="px-3 py-1.5 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-cyan-300">Logs</button>
+            <button onclick="botAction('${b.bot_id}', 'restart')" class="px-3 py-1.5 rounded-lg text-xs bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300">Restart</button>
+            <button onclick="botAction('${b.bot_id}', 'stop')" class="px-3 py-1.5 rounded-lg text-xs bg-amber-500/20 hover:bg-amber-500/30 text-amber-300">Stop</button>
+            <button onclick="botAction('${b.bot_id}', 'terminate')" class="px-3 py-1.5 rounded-lg text-xs bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 ml-auto">Terminate</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function botAction(botId, action) {
+      await fetch(`/api/bot/${botId}/action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      });
+      loadMyBots();
+      if (!document.getElementById('ownerSection').classList.contains('hidden')) {
+        loadOwnerOverview();
+      }
+    }
+
+    async function viewLogs(botId) {
+      const res = await fetch(`/api/bot/${botId}/logs`);
+      const data = await res.json();
+      document.getElementById('logOutput').innerText = data.logs || 'No logs.';
+      document.getElementById('logModal').classList.remove('hidden');
+    }
+
+    async function toggleOwnerPanel() {
+      const sec = document.getElementById('ownerSection');
+      sec.classList.toggle('hidden');
+      if (!sec.classList.contains('hidden')) {
+        loadOwnerOverview();
+      }
+    }
+
+    async function loadOwnerOverview() {
+      const res = await fetch('/api/owner/overview');
+      const data = await res.json();
+      if (!data.ok) return;
+
+      document.getElementById('ownerUsersTable').innerHTML = data.users.map(u => `
+        <tr>
+          <td class="py-2.5 px-3 font-semibold text-cyan-300">@${u.username}</td>
+          <td class="py-2.5 px-3">${u.display_name}</td>
+          <td class="py-2.5 px-3 font-bold">${u.hosted_count}</td>
+          <td class="py-2.5 px-3 text-emerald-400">${u.running_count}</td>
+          <td class="py-2.5 px-3 text-slate-400">${u.last_login}</td>
+        </tr>
+      `).join('');
+
+      document.getElementById('ownerBotsTable').innerHTML = data.all_bots.map(b => `
+        <tr>
+          <td class="py-2.5 px-3 mono">${b.bot_id}</td>
+          <td class="py-2.5 px-3 text-purple-300">@${b.owner}</td>
+          <td class="py-2.5 px-3">${b.bot_name}</td>
+          <td class="py-2.5 px-3">${b.status}</td>
+          <td class="py-2.5 px-3 mono">${b.cpu}% / ${b.ram_mb}MB</td>
+          <td class="py-2.5 px-3">
+            <button onclick="botAction('${b.bot_id}', 'terminate')" class="px-2.5 py-1 rounded bg-rose-600/30 text-rose-300 hover:bg-rose-600/50">Force Terminate</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    checkAuth();
+  </script>
+</body>
+</html>
