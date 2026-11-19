@@ -540,10 +540,13 @@ def telemetry_worker():
         time.sleep(2)
 
 
-# --- ROUTES: HEALTH, AUTO-DETECT BGM AUDIO & USER-ID-ONLY AUTH ---
+# --- ROUTES: HEALTH, RANGE-ENABLED BGM STREAMING & USER-ID AUTH ---
 @app.route("/health")
 def health():
     return jsonify({"ok": True, "uptime": int(time.time() - START_TIME)})
+
+
+AUDIO_EXTS = (".mp3", ".m4a", ".mp4", ".ogg", ".wav")
 
 
 @app.route("/bgm")
@@ -551,13 +554,21 @@ def serve_bgm():
     for folder in (STATIC_DIR, config.BASE_DIR):
         if not os.path.isdir(folder):
             continue
-        preferred = os.path.join(folder, "bgm.mp3")
-        if os.path.exists(preferred):
-            return send_file(preferred, mimetype="audio/mpeg")
+        for ext in AUDIO_EXTS:
+            preferred = os.path.join(folder, f"bgm{ext}")
+            if os.path.exists(preferred):
+                return send_file(preferred, conditional=True)
         for fname in sorted(os.listdir(folder)):
-            if fname.lower().endswith(".mp3"):
-                return send_file(os.path.join(folder, fname), mimetype="audio/mpeg")
-    return jsonify({"ok": False, "error": "No .mp3 file found in static/ or root folder."}), 404
+            if fname.lower().endswith(AUDIO_EXTS):
+                return send_file(os.path.join(folder, fname), conditional=True)
+
+    # Fallback: check if user uploaded an audio file into uploads/
+    for root, _, files in os.walk(config.UPLOAD_DIR):
+        for fname in sorted(files):
+            if fname.lower().endswith(AUDIO_EXTS):
+                return send_file(os.path.join(root, fname), conditional=True)
+
+    return jsonify({"ok": False, "error": "No audio file found. Upload an MP3 via Hashira Panel or static/bgm.mp3."}), 404
 
 
 @app.route("/")
@@ -880,7 +891,29 @@ def bot_action(bot_id):
     return jsonify({"ok": True})
 
 
-# --- ROUTES: OWNER MASTER CONTROL & JSON EXPORT ---
+# --- ROUTES: OWNER MASTER CONTROL, BGM UPLOAD & JSON EXPORT ---
+@app.route("/api/owner/upload-bgm", methods=["POST"])
+def owner_upload_bgm():
+    if not session.get("is_owner"):
+        return jsonify({"ok": False, "error": "Owner privileges required."}), 403
+
+    f = request.files.get("bgm")
+    if not f or not f.filename:
+        return jsonify({"ok": False, "error": "Please select an .mp3 audio file."}), 400
+
+    ext = os.path.splitext(f.filename)[1].lower()
+    if ext not in AUDIO_EXTS:
+        return jsonify({"ok": False, "error": "Supported formats: .mp3, .m4a, .mp4, .ogg, .wav"}), 400
+
+    for old in os.listdir(STATIC_DIR):
+        if old.lower().startswith("bgm."):
+            os.remove(os.path.join(STATIC_DIR, old))
+
+    save_path = os.path.join(STATIC_DIR, f"bgm{ext}")
+    f.save(save_path)
+    return jsonify({"ok": True})
+
+
 @app.route("/api/owner/overview")
 def owner_overview():
     if not session.get("is_owner"):
