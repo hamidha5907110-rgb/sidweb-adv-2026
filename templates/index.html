@@ -91,7 +91,6 @@
       overflow: hidden;
     }
 
-    /* Subtle Ichimatsu (Tanjiro Haori Checkered) Overlay */
     .ds-haori-grid {
       position: fixed;
       inset: 0;
@@ -107,7 +106,6 @@
       background-position: 0 0, 0 18px, 18px -18px, -18px 0;
     }
 
-    /* Full-Screen Demon Slayer Swordsman Character Art SVG */
     .ds-character-art {
       position: fixed;
       right: -2%;
@@ -141,11 +139,6 @@
       50% { transform: translateY(-5px) rotate(1.5deg); }
     }
 
-    @keyframes slashSpin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
     @keyframes slideUpFade {
       from { opacity: 0; transform: translateY(14px); }
       to { opacity: 1; transform: translateY(0); }
@@ -161,7 +154,6 @@
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     .hidden { display: none !important; }
 
-    /* Demon Slayer Obsidian Glass Segments */
     .glass {
       position: relative;
       background: var(--glass);
@@ -174,7 +166,6 @@
       overflow: hidden;
     }
 
-    /* Kanji Breathing Watermark inside Segments */
     .glass[data-kanji]::before {
       content: attr(data-kanji);
       position: absolute;
@@ -220,7 +211,6 @@
       box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
     }
 
-    /* Nichirin Katana Slash Buttons */
     .btn {
       position: relative;
       overflow: hidden;
@@ -239,7 +229,6 @@
       text-decoration: none;
     }
 
-    /* Diagonal Katana Light-Slash Sweep */
     .btn::after {
       content: "";
       position: absolute;
@@ -287,7 +276,6 @@
       font-weight: 700;
     }
 
-    /* Demon Slayer Corps Crest Avatar */
     .ds-crest {
       width: 52px;
       height: 52px;
@@ -314,7 +302,6 @@
       animation: nichirinFloat 4s ease-in-out infinite, breathingAura 3.5s ease-in-out infinite;
     }
 
-    /* Login Overlay */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -329,7 +316,6 @@
     }
     .login-box { max-width: 400px; width: 100%; padding: 28px 24px; text-align: center; }
 
-    /* Layout Grid */
     .container { max-width: 1220px; margin: 0 auto; padding: 14px 12px; display: flex; flex-direction: column; gap: 16px; }
     .navbar { padding: 14px 18px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
     .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 16px; }
@@ -351,7 +337,6 @@
     th { color: var(--muted); font-weight: 600; }
     .table-wrap { overflow-x: auto; }
 
-    /* Kasugai Crow Interactive Terminal Styling */
     .term-steps {
       display: flex;
       gap: 6px;
@@ -401,7 +386,6 @@
       align-items: center;
     }
 
-    /* Mobile Demon Slayer Glassmorphism Bottom Navigation Bar */
     .mobile-glass-nav {
       position: fixed;
       bottom: calc(12px + env(safe-area-inset-bottom));
@@ -485,32 +469,22 @@
       </pattern>
     </defs>
 
-    <!-- Full Moon & Breathing Energy Halo -->
     <circle cx="420" cy="175" r="145" fill="url(#dsMoon)"/>
     <circle cx="420" cy="175" r="95" stroke="var(--moon-color)" stroke-width="1.5" stroke-opacity="0.35"/>
 
-    <!-- Swirling Hinokami / Water / Thunder Breathing Slash Arcs -->
     <path d="M90 520 C 140 240, 360 110, 560 165 C 400 175, 220 295, 165 540 Z" fill="url(#breathingArc)" opacity="0.72"/>
     <path d="M60 470 C 150 180, 410 70, 585 130" stroke="url(#breathingArc)" stroke-width="6" stroke-linecap="round"/>
     <path d="M130 560 C 210 310, 410 210, 575 245" stroke="var(--accent)" stroke-width="3" stroke-dasharray="10 8" stroke-linecap="round" opacity="0.75"/>
 
-    <!-- Demon Slayer Corps Swordsman Silhouette with Checkered Haori & Nichirin Katana -->
     <g transform="translate(185, 195)">
-      <!-- Flowing Haori Cape -->
       <path d="M95 135 L35 340 L145 365 L175 230 L215 365 L315 335 L245 135 Z" fill="url(#haoriCheck)" stroke="var(--primary)" stroke-width="2"/>
-      <!-- Corps Uniform Torso -->
       <path d="M125 125 L215 125 L230 265 L110 265 Z" fill="#0c0a12" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>
-      <!-- White Belt -->
       <rect x="115" y="232" width="110" height="14" rx="3" fill="#e2e8f0" opacity="0.85"/>
-      <!-- Head & Spiky Demon Slayer Hair -->
       <circle cx="170" cy="82" r="34" fill="#0c0a12"/>
       <path d="M134 78 L122 52 L144 58 L142 32 L164 46 L176 24 L188 46 L212 36 L204 62 L224 58 L208 82 Z" fill="#0c0a12" stroke="var(--primary)" stroke-width="1.5"/>
-      <!-- Hanafuda Earring Glow -->
       <rect x="133" y="96" width="7" height="15" rx="2" fill="#f8fafc" stroke="var(--primary)" stroke-width="1.2"/>
-      <!-- Nichirin Katana Blade Drawn Diagonal -->
       <line x1="75" y1="245" x2="355" y2="25" stroke="#09070d" stroke-width="9" stroke-linecap="round"/>
       <line x1="75" y1="245" x2="355" y2="25" stroke="url(#breathingArc)" stroke-width="4" stroke-linecap="round"/>
-      <!-- Nichirin Tsuba (Guard) & Hilt -->
       <ellipse cx="118" cy="211" rx="14" ry="8" transform="rotate(-38 118 211)" fill="var(--gold)" stroke="#09070d" stroke-width="2"/>
       <line x1="65" y1="253" x2="115" y2="213" stroke="#18181b" stroke-width="10" stroke-linecap="round"/>
       <line x1="65" y1="253" x2="115" y2="213" stroke="var(--primary)" stroke-width="3" stroke-dasharray="5 5"/>
@@ -523,7 +497,6 @@
   <div id="loginModal" class="modal-overlay">
     <div class="glass login-box" data-kanji="滅">
       <div class="ds-hero-crest">
-        <!-- Nichirin Sun-Wheel Tsuba & Corps Kanji Emblem -->
         <svg width="46" height="46" viewBox="0 0 64 64" fill="none">
           <circle cx="32" cy="32" r="24" stroke="var(--primary)" stroke-width="2.5"/>
           <circle cx="32" cy="32" r="17" stroke="var(--secondary)" stroke-width="1.5" stroke-dasharray="4 3"/>
@@ -562,6 +535,7 @@
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button onclick="toggleDemonSlayerAudio()" id="bgmToggleBtn" class="btn btn-dark btn-sm" title="Toggle Demon Slayer Theme Music">BGM: ON</button>
         <button onclick="cycleAnimeTheme()" id="themeChipBtn" class="btn btn-purple btn-sm" title="Switch Breathing Style">Breathing: Hinokami</button>
         <button id="ownerTabBtn" onclick="toggleOwnerPanel()" class="btn btn-amber btn-sm hidden">Hashira Panel</button>
         <button onclick="handleLogout()" class="btn btn-red btn-sm">Logout</button>
@@ -718,7 +692,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
     </nav>
   </div>
 
-  <!-- KASUGAI CROW INTERACTIVE TERMINAL MODAL (PHONE -> OTP -> 2FA -> DEPLOYED) -->
+  <!-- KASUGAI CROW INTERACTIVE TERMINAL MODAL -->
   <div id="logModal" class="modal-overlay hidden">
     <div class="glass" data-kanji="鴉" style="max-width:740px;width:100%;padding:18px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;">
@@ -732,7 +706,6 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
         </div>
       </div>
 
-      <!-- Auth Stage Progress Indicators -->
       <div class="term-steps">
         <span id="step-phone" class="step-chip active">1. Phone / Token</span>
         <span id="step-otp" class="step-chip">2. OTP Code</span>
@@ -742,7 +715,6 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
 
       <pre id="logOutput" class="mono term-screen"></pre>
 
-      <!-- Real-Time Stdin Input Bar -->
       <form onsubmit="submitTerminalInput(event)" class="term-input-bar">
         <input id="termStdinInput" type="text" autocomplete="off" placeholder="Type Phone (+91...), OTP code, or 2FA password..." class="mono" style="font-size:14px;padding:11px 12px;" />
         <button type="button" id="secretToggleBtn" onclick="toggleSecretMode()" class="btn btn-purple btn-sm" title="Mask 2FA Password">2FA Mask: OFF</button>
@@ -770,6 +742,156 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
   </div>
 
   <script>
+    // --- DEMON SLAYER SMOOTH AMBIENT THEME MUSIC ENGINE (GURENGE & KAMADO TANJIRO NO UTA) ---
+    const DemonSlayerBGM = (() => {
+      let audioCtx = null;
+      let masterGain = null;
+      let isPlaying = false;
+      let isMuted = localStorage.getItem('siduser_ds_bgm_muted') === '1';
+      let noteTimer = null;
+      let stepIndex = 0;
+
+      // Smooth Koto / Music-Box Melody (Kamado Tanjiro no Uta + Gurenge motif)
+      const MELODY = [
+        // Kamado Tanjiro no Uta gentle phrase
+        { f: 587.33, d: 0.55 }, // D5
+        { f: 659.25, d: 0.55 }, // E5
+        { f: 739.99, d: 0.75 }, // F#5
+        { f: 880.00, d: 0.75 }, // A5
+        { f: 739.99, d: 0.55 }, // F#5
+        { f: 659.25, d: 0.55 }, // E5
+        { f: 587.33, d: 0.95 }, // D5
+        { f: 493.88, d: 0.55 }, // B4
+        { f: 587.33, d: 0.55 }, // D5
+        { f: 659.25, d: 1.10 }, // E5
+        { f: 0,      d: 0.45 }, // Rest
+        // Gurenge melodic phrase
+        { f: 329.63, d: 0.42 }, // E4
+        { f: 392.00, d: 0.42 }, // G4
+        { f: 440.00, d: 0.42 }, // A4
+        { f: 493.88, d: 0.70 }, // B4
+        { f: 440.00, d: 0.42 }, // A4
+        { f: 392.00, d: 0.42 }, // G4
+        { f: 329.63, d: 0.85 }, // E4
+        { f: 493.88, d: 0.45 }, // B4
+        { f: 587.33, d: 0.45 }, // D5
+        { f: 659.25, d: 0.75 }, // E5
+        { f: 587.33, d: 0.45 }, // D5
+        { f: 493.88, d: 0.45 }, // B4
+        { f: 440.00, d: 0.55 }, // A4
+        { f: 392.00, d: 0.55 }, // G4
+        { f: 440.00, d: 0.55 }, // A4
+        { f: 493.88, d: 1.15 }, // B4
+        { f: 0,      d: 0.65 }  // Rest
+      ];
+
+      function updateBtnLabel() {
+        const btn = document.getElementById('bgmToggleBtn');
+        if (btn) btn.innerText = isMuted ? 'BGM: OFF' : 'BGM: ON';
+      }
+
+      function playPluckNote(freq, duration) {
+        if (!audioCtx || !masterGain || freq <= 0) return;
+        const now = audioCtx.currentTime;
+
+        // Soft koto-piano harmonic blend
+        const osc1 = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
+        const filter = audioCtx.createBiquadFilter();
+        const env = audioCtx.createGain();
+
+        osc1.type = 'sine';
+        osc2.type = 'triangle';
+        osc1.frequency.setValueAtTime(freq, now);
+        osc2.frequency.setValueAtTime(freq * 2, now); // Gentle octave shimmer
+
+        const harmonicGain = audioCtx.createGain();
+        harmonicGain.gain.setValueAtTime(0.18, now);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(1100, now);
+        filter.frequency.exponentialRampToValueAtTime(420, now + duration + 0.6);
+
+        // Smooth attack & long warm release
+        env.gain.setValueAtTime(0.0001, now);
+        env.gain.linearRampToValueAtTime(0.22, now + 0.06);
+        env.gain.exponentialRampToValueAtTime(0.0008, now + duration + 0.85);
+
+        osc1.connect(filter);
+        osc2.connect(harmonicGain);
+        harmonicGain.connect(filter);
+        filter.connect(env);
+        env.connect(masterGain);
+
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + duration + 0.9);
+        osc2.stop(now + duration + 0.9);
+      }
+
+      function scheduleNext() {
+        if (!isPlaying || isMuted) return;
+        const note = MELODY[stepIndex % MELODY.length];
+        stepIndex++;
+        playPluckNote(note.f, note.d);
+        noteTimer = setTimeout(scheduleNext, note.d * 1000);
+      }
+
+      function start() {
+        updateBtnLabel();
+        if (isMuted) return;
+
+        if (!audioCtx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextClass) return;
+          audioCtx = new AudioContextClass();
+          masterGain = audioCtx.createGain();
+          // Normal, smooth, comfortable background volume
+          masterGain.gain.setValueAtTime(0.24, audioCtx.currentTime);
+          masterGain.connect(audioCtx.destination);
+        }
+
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume().then(() => {
+            if (!isPlaying && !isMuted) {
+              isPlaying = true;
+              scheduleNext();
+            }
+          }).catch(() => {});
+        } else if (!isPlaying) {
+          isPlaying = true;
+          scheduleNext();
+        }
+      }
+
+      function toggle() {
+        isMuted = !isMuted;
+        localStorage.setItem('siduser_ds_bgm_muted', isMuted ? '1' : '0');
+        updateBtnLabel();
+        if (isMuted) {
+          isPlaying = false;
+          clearTimeout(noteTimer);
+        } else {
+          start();
+        }
+      }
+
+      return { start, toggle, updateBtnLabel };
+    })();
+
+    function toggleDemonSlayerAudio() {
+      DemonSlayerBGM.toggle();
+    }
+
+    // Attempt immediate start on page open + unlock seamlessly on first user interaction
+    window.addEventListener('DOMContentLoaded', () => {
+      DemonSlayerBGM.updateBtnLabel();
+      DemonSlayerBGM.start();
+    });
+    ['pointerdown', 'keydown', 'touchstart'].forEach(evt => {
+      window.addEventListener(evt, () => DemonSlayerBGM.start(), { once: true, passive: true });
+    });
+
     // Demon Slayer Breathing Style Switcher
     const BREATHING_THEMES = [
       { id: 'hinokami', label: 'Hinokami', c1: 'rgba(239,68,68,0.55)', c2: 'rgba(249,115,22,0.45)', line1: '#ef4444', line2: '#f97316' },
@@ -800,7 +922,6 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
       applyAnimeTheme(BREATHING_THEMES[themeIdx].id);
     }
 
-    // Mobile Glassmorphism Navigation Helper
     function setActivePill(btn) {
       document.querySelectorAll('.nav-pill').forEach(p => p.classList.remove('active'));
       if (btn) btn.classList.add('active');
@@ -828,7 +949,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
         y: Math.random() * bgCanvas.height,
         r: Math.random() * 2.4 + 1,
         dx: (Math.random() - 0.5) * 0.45,
-        dy: -(Math.random() * 0.55 + 0.15), // Rising embers effect
+        dy: -(Math.random() * 0.55 + 0.15),
         c: i % 2 === 0 ? BREATHING_THEMES[0].c1 : BREATHING_THEMES[0].c2
       });
     }
@@ -852,7 +973,6 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
     const savedTheme = localStorage.getItem('siduser_ds_theme');
     if (savedTheme) applyAnimeTheme(savedTheme);
 
-    // Native Canvas Telemetry Graph (Color-matched to Breathing Style)
     function drawTelemetryGraph(history) {
       const canvas = document.getElementById('telemetryChart');
       if (!canvas || !history || history.length < 2) return;
@@ -891,7 +1011,6 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
       drawSeries('sys_ram', theme.line2);
     }
 
-    // Interactive Terminal State & Prompt Stage Detection
     let currentUserId = null, currentMgmt = {}, activeTerminalBotId = null, secretInputMode = false;
 
     function detectAuthStage(fullText) {
@@ -1045,6 +1164,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
 
     async function handleLogin(e) {
       e.preventDefault();
+      DemonSlayerBGM.start();
       const btn = document.getElementById('loginBtn');
       btn.disabled = true;
       btn.innerText = 'Concentrating...';
