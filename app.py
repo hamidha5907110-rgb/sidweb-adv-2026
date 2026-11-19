@@ -54,6 +54,7 @@ DEFAULT_DATA = {
         "maintenance_mode": False,
         "max_bots_per_user": config.MAX_BOTS_PER_USER,
         "auto_install_deps": True,
+        "ast_security_scan": True,
         "banned_user_ids": []
     }
 }
@@ -61,7 +62,7 @@ DEFAULT_DATA = {
 db_lock = threading.RLock()
 RUNNING_PROCS = {}
 PROC_HANDLES = {}
-BOT_TERMINALS = {}  # bot_id -> {"type": "pty"|"pipe", "fd": int|None, "proc": Popen}
+BOT_TERMINALS = {}
 
 
 # --- ATOMIC JSON DATABASE ENGINE ---
@@ -91,6 +92,104 @@ def write_json(key, data):
 
 
 init_json_dbs()
+
+
+# --- AST SECURITY SCANNER (VPS & RDP PROTECTION) ---
+BANNED_MODULES = {
+    "subprocess", "ctypes", "pty", "fcntl", "resource",
+    "posix", "nt", "winreg", "paramiko", "telnetlib", "ftplib"
+}
+
+BANNED_CALLS = {
+    "os.system", "os.popen", "os.fork", "os.forkpty",
+    "os.kill", "os.killpg", "os.chroot", "os.setuid", "os.setgid",
+    "os.spawnl", "os.spawnle", "os.spawnlp", "os.spawnlpe",
+    "os.spawnv", "os.spawnve", "os.spawnvp", "os.spawnvpe",
+    "os.execl", "os.execle", "os.execlp", "os.execlpe",
+    "os.execv", "os.execve", "os.execvp", "os.execvpe",
+    "shutil.rmtree"
+}
+
+BANNED_BUILTINS = {"eval", "exec", "compile", "__import__"}
+
+DANGEROUS_STRINGS = (
+    "../", "..\\", "/etc/passwd", "/etc/shadow", "/root/",
+    "database.json", "users.json", "management.json", "performance.json",
+    "rm -rf", ":(){ :|:& };:"
+)
+
+
+def scan_project_ast(bot_dir):
+    """
+    Scans all Python files in a userbot directory using Python's built-in AST.
+    Returns (is_safe: bool, error_message: str | None).
+    """
+    mgmt = read_json("management")
+    if not mgmt.get("ast_security_scan", True):
+        return True, None
+
+    for root, _, files in os.walk(bot_dir):
+        for fname in files:
+            if not fname.endswith(".py"):
+                continue
+
+            full_path = os.path.join(root, fname)
+            rel_path = os.path.relpath(full_path, bot_dir)
+
+            try:
+                with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
+                    source = f.read()
+                tree = ast.parse(source, filename=rel_path)
+            except SyntaxError as e:
+                return False, f"SyntaxError in {rel_path} (line {e.lineno}): {e.msg}"
+
+            aliases = {}       # e.g. import os as _os -> {"_os": "os"}
+            banned_names = {}  # e.g. from os import system as run -> {"run": "os.system"}
+
+            for node in ast.walk(tree):
+                line_no = getattr(node, "lineno", 0)
+
+                # 1. Check `import ...`
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        top_mod = alias.name.split(".")[0]
+                        if top_mod in BANNED_MODULES:
+                            return False, f"{rel_path} (line {line_no}): Blocked module '{top_mod}'."
+                        aliases[alias.asname or top_mod] = top_mod
+
+                # 2. Check `from ... import ...`
+                elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                    top_mod = node.module.split(".")[0]
+                    if top_mod in BANNED_MODULES:
+                        return False, f"{rel_path} (line {line_no}): Blocked module '{top_mod}'."
+                    for alias in node.names:
+                        full_target = f"{node.module}.{alias.name}"
+                        if full_target in BANNED_CALLS:
+                            banned_names[alias.asname or alias.name] = full_target
+
+                # 3. Check function calls (`os.system`, `shutil.rmtree`, `eval`, `exec`, etc.)
+                elif isinstance(node, ast.Call):
+                    if isinstance(node.func, ast.Name):
+                        fn = node.func.id
+                        if fn in BANNED_BUILTINS:
+                            return False, f"{rel_path} (line {line_no}): Blocked builtin '{fn}()'."
+                        if fn in banned_names:
+                            return False, f"{rel_path} (line {line_no}): Blocked call '{banned_names[fn]}()'."
+
+                    elif isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
+                        resolved_mod = aliases.get(node.func.value.id, node.func.value.id)
+                        full_call = f"{resolved_mod}.{node.func.attr}"
+                        if full_call in BANNED_CALLS:
+                            return False, f"{rel_path} (line {line_no}): Blocked system call '{full_call}()'."
+
+                # 4. Check string literals for path traversal or hoster DB access
+                elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                    lower_val = node.value.lower()
+                    for pattern in DANGEROUS_STRINGS:
+                        if pattern in lower_val:
+                            return False, f"{rel_path} (line {line_no}): Blocked restricted path/pattern '{pattern}'."
+
+    return True, None
 
 
 # --- SAFE ZIP EXTRACTION & GITHUB FOLDER FLATTENING ---
@@ -257,7 +356,7 @@ def stream_pipe_reader(bot_id, pipe_stream, log_path):
         BOT_TERMINALS.pop(bot_id, None)
 
 
-# --- MULTI-PROCESS LAUNCHER WITH INTERACTIVE PTY (NO EOF) ---
+# --- MULTI-PROCESS LAUNCHER WITH AST CHECK & INTERACTIVE PTY ---
 def launch_bot_process(bot_id):
     db = read_json("database")
     bot = db["bots"].get(bot_id)
@@ -270,6 +369,14 @@ def launch_bot_process(bot_id):
 
     if not os.path.exists(bot_dir):
         bot["status"] = "ERROR: Files Missing"
+        write_json("database", db)
+        return
+
+    # Re-verify AST before process startup
+    is_safe, ast_err = scan_project_ast(bot_dir)
+    if not is_safe:
+        emit_log_line(bot_id, log_path, f"[AST BLOCKED] {ast_err}\n")
+        bot["status"] = "BLOCKED (AST)"
         write_json("database", db)
         return
 
@@ -296,7 +403,7 @@ def launch_bot_process(bot_id):
         master_fd, slave_fd = pty.openpty()
         try:
             attrs = termios.tcgetattr(slave_fd)
-            attrs[3] = attrs[3] & ~termios.ECHO  # Prevent raw 2FA password echo into logs
+            attrs[3] = attrs[3] & ~termios.ECHO
             termios.tcsetattr(slave_fd, termios.TCSANOW, attrs)
         except Exception:
             pass
@@ -512,7 +619,7 @@ def me():
     })
 
 
-# --- ROUTES: DEPLOY, INTERACTIVE STDIN (OTP / 2FA), LOGS & SETTINGS ---
+# --- ROUTES: DEPLOY (WITH AST SCAN), INTERACTIVE STDIN, LOGS & SETTINGS ---
 @app.route("/api/deploy", methods=["POST"])
 def deploy_bot():
     user_id = session.get("user_id")
@@ -554,6 +661,12 @@ def deploy_bot():
             except Exception as e:
                 shutil.rmtree(bot_dir, ignore_errors=True)
                 return jsonify({"ok": False, "error": f"ZIP extraction failed: {e}"}), 400
+
+    # AST Security Scan before saving or executing
+    is_safe, ast_error = scan_project_ast(bot_dir)
+    if not is_safe:
+        shutil.rmtree(bot_dir, ignore_errors=True)
+        return jsonify({"ok": False, "error": f"Security Scan Rejected Upload — {ast_error}"}), 400
 
     if not entry_file.startswith("-m "):
         if not os.path.exists(os.path.join(bot_dir, entry_file)):
@@ -601,7 +714,6 @@ def deploy_bot():
 
 @app.route("/api/bot/<bot_id>/stdin", methods=["POST"])
 def send_bot_stdin(bot_id):
-    """Sends real-time interactive input (Phone, OTP, 2FA Password, or Ctrl+C) to running userbot."""
     user_id = session.get("user_id")
     if not user_id:
         return jsonify({"ok": False, "error": "Unauthorized"}), 401
@@ -807,6 +919,8 @@ def owner_update_management():
         mgmt["maintenance_mode"] = bool(data["maintenance_mode"])
     if "auto_install_deps" in data:
         mgmt["auto_install_deps"] = bool(data["auto_install_deps"])
+    if "ast_security_scan" in data:
+        mgmt["ast_security_scan"] = bool(data["ast_security_scan"])
     if "max_bots_per_user" in data:
         mgmt["max_bots_per_user"] = max(1, int(data["max_bots_per_user"]))
     if "toggle_ban_user_id" in data:
