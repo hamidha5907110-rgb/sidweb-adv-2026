@@ -576,25 +576,34 @@ def health():
 AUDIO_EXTS = (".mp3", ".m4a", ".mp4", ".ogg", ".wav")
 
 
+def _send_no_cache_audio(file_path):
+    resp = send_file(file_path, conditional=True)
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return resp
+
+
 @app.route("/bgm")
 def serve_bgm():
-    for folder in (STATIC_DIR, config.BASE_DIR):
+    for folder in (STATIC_DIR, config.DATA_DIR, config.BASE_DIR):
         if not os.path.isdir(folder):
             continue
         for ext in AUDIO_EXTS:
             preferred = os.path.join(folder, f"bgm{ext}")
             if os.path.exists(preferred):
-                return send_file(preferred, conditional=True)
+                return _send_no_cache_audio(preferred)
         for fname in sorted(os.listdir(folder)):
             if fname.lower().endswith(AUDIO_EXTS):
-                return send_file(os.path.join(folder, fname), conditional=True)
+                return _send_no_cache_audio(os.path.join(folder, fname))
 
     for root, _, files in os.walk(config.UPLOAD_DIR):
         for fname in sorted(files):
             if fname.lower().endswith(AUDIO_EXTS):
-                return send_file(os.path.join(root, fname), conditional=True)
+                return _send_no_cache_audio(os.path.join(root, fname))
 
-    return jsonify({"ok": False, "error": "No audio file found."}), 404
+    resp = jsonify({"ok": False, "error": "No audio file found."})
+    resp.status_code = 404
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return resp
 
 
 @app.route("/")
@@ -924,7 +933,7 @@ def bot_action(bot_id):
     return jsonify({"ok": True})
 
 
-# --- ROUTES: OWNER MASTER CONTROL, BGM UPLOAD & JSON EXPORT ---
+# --- ROUTES: OWNER MASTER CONTROL, AUDIO UPLOAD & JSON EXPORT ---
 @app.route("/api/owner/upload-bgm", methods=["POST"])
 def owner_upload_bgm():
     _, is_owner = get_auth_context()
@@ -933,18 +942,21 @@ def owner_upload_bgm():
 
     f = request.files.get("bgm")
     if not f or not f.filename:
-        return jsonify({"ok": False, "error": "Please select an .mp3 audio file."}), 400
+        return jsonify({"ok": False, "error": "Please select an audio file."}), 400
 
     ext = os.path.splitext(f.filename)[1].lower()
     if ext not in AUDIO_EXTS:
         return jsonify({"ok": False, "error": "Supported formats: .mp3, .m4a, .mp4, .ogg, .wav"}), 400
 
-    for old in os.listdir(STATIC_DIR):
-        if old.lower().startswith("bgm."):
-            os.remove(os.path.join(STATIC_DIR, old))
+    for folder in (STATIC_DIR, config.DATA_DIR):
+        for old in os.listdir(folder):
+            if old.lower().startswith("bgm."):
+                os.remove(os.path.join(folder, old))
 
-    save_path = os.path.join(STATIC_DIR, f"bgm{ext}")
-    f.save(save_path)
+    static_path = os.path.join(STATIC_DIR, f"bgm{ext}")
+    data_path = os.path.join(config.DATA_DIR, f"bgm{ext}")
+    f.save(static_path)
+    shutil.copy2(static_path, data_path)
     return jsonify({"ok": True})
 
 
