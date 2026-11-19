@@ -12,6 +12,7 @@ import zipfile
 import subprocess
 import threading
 import psutil
+from collections import deque
 from datetime import datetime
 from werkzeug.utils import secure_filename
 from flask import Flask, render_template, request, jsonify, session, send_file
@@ -24,6 +25,8 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 os.makedirs(config.DATA_DIR, exist_ok=True)
 os.makedirs(config.UPLOAD_DIR, exist_ok=True)
+
+START_TIME = time.time()
 
 DB_FILES = {
     "database": os.path.join(config.DATA_DIR, "database.json"),
@@ -49,6 +52,7 @@ DEFAULT_DATA = {
 
 db_lock = threading.RLock()
 RUNNING_PROCS = {}
+PROC_HANDLES = {}  # Cached psutil.Process handles for non-blocking accurate CPU%
 
 
 # --- ATOMIC JSON DATABASE ENGINE ---
@@ -139,13 +143,13 @@ def auto_install_requirements(bot_dir, log_path):
         return
 
     with open(log_path, "a", encoding="utf-8") as log:
-        log.write(f"[{datetime.now().strftime('%H:%M:%S')}] 🔍 Scanning userbot dependencies...\n")
+        log.write(f"[{datetime.now().strftime('%H:%M:%S')}] Scanning userbot dependencies...\n")
         log.flush()
 
         for root, _, files in os.walk(bot_dir):
             if "requirements.txt" in files:
                 req_path = os.path.join(root, "requirements.txt")
-                log.write(f"[PIP] 📦 Installing from {os.path.relpath(req_path, bot_dir)}...\n")
+                log.write(f"[PIP] Installing {os.path.relpath(req_path, bot_dir)}...\n")
                 log.flush()
                 subprocess.run(
                     [sys.executable, "-m", "pip", "install", "-r", req_path, "--quiet"],
@@ -166,6 +170,7 @@ def auto_install_requirements(bot_dir, log_path):
             for file in files:
                 if file.endswith(".py"):
                     file_path = os.path.join(root, file)
+                    source = ""
                     try:
                         with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                             source = f.read()
@@ -190,14 +195,14 @@ def auto_install_requirements(bot_dir, log_path):
             try:
                 __import__(pkg.lower().replace("-", "_"))
             except ImportError:
-                log.write(f"[AUTO-PIP] ⬇️ Installing missing module: {pkg}...\n")
+                log.write(f"[AUTO-PIP] Installing missing module: {pkg}...\n")
                 log.flush()
                 subprocess.run(
                     [sys.executable, "-m", "pip", "install", pkg, "--quiet"],
                     stdout=log, stderr=log
                 )
 
-        log.write("[SYSTEM] ✅ All modules verified. Launching process...\n")
+        log.write("[SYSTEM] Dependencies verified. Starting process...\n")
         log.flush()
 
 
@@ -254,22 +259,26 @@ def launch_bot_process(bot_id):
 
 
 def recover_running_bots():
-    time.sleep(1.5)
     db = read_json("database")
     for bot_id, info in db["bots"].items():
         if info.get("status") in ("RUNNING", "INSTALLING") and os.path.exists(info.get("dir", "")):
             threading.Thread(target=launch_bot_process, args=(bot_id,), daemon=True).start()
 
 
-# --- REAL-TIME TELEMETRY WORKER ---
+# --- NON-BLOCKING REAL-TIME TELEMETRY WORKER ---
 def telemetry_worker():
+    psutil.cpu_percent(interval=None)  # Prime non-blocking CPU counter
+    perf = read_json("performance")
+    history_buf = deque(perf.get("logs", [])[-40:], maxlen=40)
+    peaks = perf.get("system_peaks", {"cpu": 0.0, "ram": 0.0, "max_concurrent_bots": 0})
+    tick_counter = 0
+
     while True:
         try:
-            db = read_json("database")
-            perf = read_json("performance")
-            sys_cpu = psutil.cpu_percent(interval=0.5)
+            sys_cpu = psutil.cpu_percent(interval=None)
             sys_ram = psutil.virtual_memory().percent
 
+            db = read_json("database")
             bot_metrics = {}
             changed = False
 
@@ -277,12 +286,17 @@ def telemetry_worker():
                 pid = info.get("pid")
                 if pid and psutil.pid_exists(pid):
                     try:
-                        proc = psutil.Process(pid)
+                        proc = PROC_HANDLES.get(pid)
+                        if proc is None:
+                            proc = psutil.Process(pid)
+                            proc.cpu_percent(interval=None)  # Prime per-process counter
+                            PROC_HANDLES[pid] = proc
+
                         if proc.status() == psutil.STATUS_ZOMBIE:
                             raise psutil.NoSuchProcess(pid)
-                        cpu = round(proc.cpu_percent(interval=0.1), 1)
+
+                        cpu = round(proc.cpu_percent(interval=None), 1)
                         ram_mb = round(proc.memory_info().rss / (1024 * 1024), 1)
-                        uptime_sec = int(time.time() - info.get("started_at", time.time()))
                         info["cpu"] = cpu
                         info["ram_mb"] = ram_mb
                         info["status"] = "RUNNING"
@@ -291,11 +305,11 @@ def telemetry_worker():
                             "bot_name": info["bot_name"],
                             "cpu": cpu,
                             "ram_mb": ram_mb,
-                            "uptime": uptime_sec,
                             "status": "RUNNING"
                         }
                         changed = True
                     except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        PROC_HANDLES.pop(pid, None)
                         if info["status"] == "RUNNING":
                             info["status"] = "STOPPED"
                             info["pid"] = None
@@ -303,6 +317,8 @@ def telemetry_worker():
                             info["ram_mb"] = 0.0
                             changed = True
                 else:
+                    if pid:
+                        PROC_HANDLES.pop(pid, None)
                     if info["status"] == "RUNNING":
                         info["status"] = "STOPPED"
                         info["pid"] = None
@@ -314,35 +330,44 @@ def telemetry_worker():
                 write_json("database", db)
 
             active_count = len(bot_metrics)
-            if sys_cpu > perf["system_peaks"]["cpu"]:
-                perf["system_peaks"]["cpu"] = sys_cpu
-            if sys_ram > perf["system_peaks"]["ram"]:
-                perf["system_peaks"]["ram"] = sys_ram
-            if active_count > perf["system_peaks"].get("max_concurrent_bots", 0):
-                perf["system_peaks"]["max_concurrent_bots"] = active_count
+            if sys_cpu > peaks["cpu"]:
+                peaks["cpu"] = sys_cpu
+            if sys_ram > peaks["ram"]:
+                peaks["ram"] = sys_ram
+            if active_count > peaks.get("max_concurrent_bots", 0):
+                peaks["max_concurrent_bots"] = active_count
 
-            perf["logs"].append({
+            history_buf.append({
                 "ts": datetime.now().strftime("%H:%M:%S"),
                 "sys_cpu": sys_cpu,
                 "sys_ram": sys_ram,
                 "active_bots": active_count
             })
-            perf["logs"] = perf["logs"][-45:]
-            write_json("performance", perf)
+
+            # Flush performance.json to disk every 30s (15 ticks) to eliminate disk I/O lag
+            tick_counter += 1
+            if tick_counter >= 15:
+                write_json("performance", {"logs": list(history_buf), "system_peaks": peaks})
+                tick_counter = 0
 
             socketio.emit("telemetry_update", {
                 "sys_cpu": sys_cpu,
                 "sys_ram": sys_ram,
-                "peaks": perf["system_peaks"],
+                "peaks": peaks,
                 "bots": bot_metrics,
-                "history": perf["logs"]
+                "history": list(history_buf)
             })
         except Exception as e:
             print("Telemetry worker error:", e)
         time.sleep(2)
 
 
-# --- ROUTES: AUTHENTICATION & USER SESSION ---
+# --- ROUTES: FAST HEALTHCHECK & USER-ID-ONLY AUTH ---
+@app.route("/health")
+def health():
+    return jsonify({"ok": True, "uptime": int(time.time() - START_TIME)})
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -352,40 +377,28 @@ def index():
 def login():
     data = request.json or {}
     user_id = str(data.get("user_id", "")).strip()
-    tg_username = data.get("tg_username", "").strip().lstrip("@").lower()
-    display_name = data.get("display_name", "").strip() or tg_username
-    owner_key = data.get("owner_key", "").strip()
+    owner_key = str(data.get("owner_key", "")).strip()
 
     if not user_id or not user_id.isdigit():
-        return jsonify({"ok": False, "error": "Please enter a valid numeric Telegram User ID."}), 400
-    if not tg_username:
-        return jsonify({"ok": False, "error": "Please enter your Telegram @username."}), 400
+        return jsonify({"ok": False, "error": "Enter a valid numeric Telegram User ID."}), 400
 
     mgmt = read_json("management")
     if user_id in mgmt.get("banned_user_ids", []):
-        return jsonify({"ok": False, "error": "This Telegram User ID has been suspended by the Owner."}), 403
+        return jsonify({"ok": False, "error": "This Telegram User ID is suspended."}), 403
 
-    is_owner = (
-        owner_key == config.OWNER_SECRET_KEY
-        and (user_id == config.OWNER_USER_ID or tg_username == config.OWNER_USERNAME.lower())
-    )
+    is_owner = (user_id == config.OWNER_USER_ID and owner_key == config.OWNER_SECRET_KEY)
 
     users_db = read_json("users")
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if user_id not in users_db["users"]:
         users_db["users"][user_id] = {
             "user_id": user_id,
-            "username": tg_username,
-            "display_name": display_name,
             "joined_at": now_str,
             "last_login": now_str,
             "role": "OWNER" if is_owner else "USER"
         }
     else:
-        users_db["users"][user_id]["username"] = tg_username
         users_db["users"][user_id]["last_login"] = now_str
-        if display_name:
-            users_db["users"][user_id]["display_name"] = display_name
         if is_owner:
             users_db["users"][user_id]["role"] = "OWNER"
 
@@ -393,9 +406,8 @@ def login():
     os.makedirs(os.path.join(config.UPLOAD_DIR, user_id), exist_ok=True)
 
     session["user_id"] = user_id
-    session["tg_username"] = tg_username
     session["is_owner"] = is_owner
-    return jsonify({"ok": True, "user_id": user_id, "username": tg_username, "is_owner": is_owner})
+    return jsonify({"ok": True, "user_id": user_id, "is_owner": is_owner})
 
 
 @app.route("/api/logout", methods=["POST"])
@@ -416,30 +428,27 @@ def me():
     return jsonify({
         "authenticated": True,
         "user_id": user_id,
-        "username": user_info.get("username", session.get("tg_username", "")),
-        "display_name": user_info.get("display_name", ""),
         "joined_at": user_info.get("joined_at", "N/A"),
         "max_bots": mgmt.get("max_bots_per_user", config.MAX_BOTS_PER_USER),
         "is_owner": session.get("is_owner", False)
     })
 
 
-# --- ROUTES: ISOLATED USERBOT HOSTING & ACCOUNT SETTINGS ---
+# --- ROUTES: ISOLATED USERBOT HOSTING & SETTINGS ---
 @app.route("/api/deploy", methods=["POST"])
 def deploy_bot():
     user_id = session.get("user_id")
-    username = session.get("tg_username")
     if not user_id:
-        return jsonify({"ok": False, "error": "Session expired. Please log in again."}), 401
+        return jsonify({"ok": False, "error": "Session expired. Please enter your User ID again."}), 401
 
     mgmt = read_json("management")
     if mgmt.get("maintenance_mode") and not session.get("is_owner"):
-        return jsonify({"ok": False, "error": "Platform is in maintenance mode. Deployments paused."}), 503
+        return jsonify({"ok": False, "error": "Platform is in maintenance mode."}), 503
 
     db = read_json("database")
     user_bots = [b for b in db["bots"].values() if b["owner_id"] == user_id]
     if len(user_bots) >= mgmt.get("max_bots_per_user", config.MAX_BOTS_PER_USER) and not session.get("is_owner"):
-        return jsonify({"ok": False, "error": f"Limit reached ({mgmt.get('max_bots_per_user')} userbots max per User ID)."}), 400
+        return jsonify({"ok": False, "error": f"Maximum limit of {mgmt.get('max_bots_per_user')} userbots reached."}), 400
 
     bot_name = request.form.get("bot_name", "TelegramUserbot").strip()
     entry_file = request.form.get("entry_file", "main.py").strip()
@@ -479,7 +488,7 @@ def deploy_bot():
                 entry_file = found
             else:
                 shutil.rmtree(bot_dir, ignore_errors=True)
-                return jsonify({"ok": False, "error": "No runnable .py file found inside upload."}), 400
+                return jsonify({"ok": False, "error": "No executable .py file found inside upload."}), 400
 
     if env_vars_raw:
         with open(os.path.join(bot_dir, ".env"), "w", encoding="utf-8") as ef:
@@ -495,7 +504,6 @@ def deploy_bot():
         "bot_id": bot_id,
         "bot_name": bot_name,
         "owner_id": user_id,
-        "owner": username,
         "entry_file": entry_file,
         "files": stored_files,
         "dir": bot_dir,
@@ -515,7 +523,6 @@ def deploy_bot():
 
 @app.route("/api/my-bots")
 def my_bots():
-    """STRICT ISOLATION: Only returns userbots owned by the current logged-in User ID."""
     user_id = session.get("user_id")
     if not user_id:
         return jsonify({"ok": False, "error": "Unauthorized"}), 401
@@ -603,6 +610,7 @@ def bot_action(bot_id):
                 parent.kill()
             except Exception:
                 pass
+        PROC_HANDLES.pop(pid, None)
         bot["pid"] = None
         bot["status"] = "STOPPED"
         bot["cpu"] = 0.0
@@ -640,8 +648,6 @@ def owner_overview():
         running_count = sum(1 for b in db["bots"].values() if b["owner_id"] == uid and b["status"] == "RUNNING")
         user_summary.append({
             "user_id": uid,
-            "username": udata.get("username", ""),
-            "display_name": udata.get("display_name", ""),
             "hosted_count": hosted_count,
             "running_count": running_count,
             "last_login": udata.get("last_login", "N/A"),
