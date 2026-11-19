@@ -16,6 +16,7 @@ import psutil
 from collections import deque
 from datetime import datetime
 from werkzeug.utils import secure_filename
+from werkzeug.middleware.proxy_fix import ProxyFix
 from flask import Flask, render_template, request, jsonify, session, send_file
 from flask_socketio import SocketIO
 import config
@@ -28,7 +29,10 @@ except ImportError:
     HAS_PTY = False
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 app.secret_key = config.SECRET_KEY
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_HTTPONLY"] = True
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 STATIC_DIR = os.path.join(config.BASE_DIR, "static")
@@ -94,6 +98,29 @@ def write_json(key, data):
 
 
 init_json_dbs()
+
+
+# --- DUAL AUTH HELPER (SESSION COOKIE + HEADER FALLBACK) ---
+def get_auth_context():
+    user_id = session.get("user_id") or request.headers.get("X-User-Id", "").strip()
+    is_owner = bool(session.get("is_owner", False))
+
+    if not is_owner and user_id:
+        owner_key = request.headers.get("X-Owner-Key", "").strip() or request.args.get("okey", "").strip()
+        if user_id == config.OWNER_USER_ID and owner_key == config.OWNER_SECRET_KEY:
+            is_owner = True
+
+    if user_id and str(user_id).isdigit():
+        user_id = str(user_id)
+        mgmt = read_json("management")
+        if user_id in mgmt.get("banned_user_ids", []):
+            return None, False
+        if session.get("user_id") != user_id:
+            session["user_id"] = user_id
+            session["is_owner"] = is_owner
+        return user_id, is_owner
+
+    return None, False
 
 
 # --- AST SECURITY SCANNER (VPS & RDP PROTECTION) ---
@@ -562,13 +589,12 @@ def serve_bgm():
             if fname.lower().endswith(AUDIO_EXTS):
                 return send_file(os.path.join(folder, fname), conditional=True)
 
-    # Fallback: check if user uploaded an audio file into uploads/
     for root, _, files in os.walk(config.UPLOAD_DIR):
         for fname in sorted(files):
             if fname.lower().endswith(AUDIO_EXTS):
                 return send_file(os.path.join(root, fname), conditional=True)
 
-    return jsonify({"ok": False, "error": "No audio file found. Upload an MP3 via Hashira Panel or static/bgm.mp3."}), 404
+    return jsonify({"ok": False, "error": "No audio file found."}), 404
 
 
 @app.route("/")
@@ -578,7 +604,7 @@ def index():
 
 @app.route("/api/login", methods=["POST"])
 def login():
-    data = request.json or {}
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
     user_id = str(data.get("user_id", "")).strip()
     owner_key = str(data.get("owner_key", "")).strip()
 
@@ -610,7 +636,14 @@ def login():
 
     session["user_id"] = user_id
     session["is_owner"] = is_owner
-    return jsonify({"ok": True, "user_id": user_id, "is_owner": is_owner})
+    return jsonify({
+        "ok": True,
+        "authenticated": True,
+        "user_id": user_id,
+        "joined_at": users_db["users"][user_id].get("joined_at", now_str),
+        "max_bots": mgmt.get("max_bots_per_user", config.MAX_BOTS_PER_USER),
+        "is_owner": is_owner
+    })
 
 
 @app.route("/api/logout", methods=["POST"])
@@ -621,7 +654,7 @@ def logout():
 
 @app.route("/api/me")
 def me():
-    user_id = session.get("user_id")
+    user_id, is_owner = get_auth_context()
     if not user_id:
         return jsonify({"authenticated": False})
 
@@ -633,24 +666,24 @@ def me():
         "user_id": user_id,
         "joined_at": user_info.get("joined_at", "N/A"),
         "max_bots": mgmt.get("max_bots_per_user", config.MAX_BOTS_PER_USER),
-        "is_owner": session.get("is_owner", False)
+        "is_owner": is_owner
     })
 
 
 # --- ROUTES: DEPLOY (WITH AST SCAN), INTERACTIVE STDIN, LOGS & SETTINGS ---
 @app.route("/api/deploy", methods=["POST"])
 def deploy_bot():
-    user_id = session.get("user_id")
+    user_id, is_owner = get_auth_context()
     if not user_id:
         return jsonify({"ok": False, "error": "Session expired. Please enter your User ID again."}), 401
 
     mgmt = read_json("management")
-    if mgmt.get("maintenance_mode") and not session.get("is_owner"):
+    if mgmt.get("maintenance_mode") and not is_owner:
         return jsonify({"ok": False, "error": "Platform is in maintenance mode."}), 503
 
     db = read_json("database")
     user_bots = [b for b in db["bots"].values() if b["owner_id"] == user_id]
-    if len(user_bots) >= mgmt.get("max_bots_per_user", config.MAX_BOTS_PER_USER) and not session.get("is_owner"):
+    if len(user_bots) >= mgmt.get("max_bots_per_user", config.MAX_BOTS_PER_USER) and not is_owner:
         return jsonify({"ok": False, "error": f"Maximum limit of {mgmt.get('max_bots_per_user')} userbots reached."}), 400
 
     bot_name = request.form.get("bot_name", "TelegramUserbot").strip()
@@ -731,20 +764,20 @@ def deploy_bot():
 
 @app.route("/api/bot/<bot_id>/stdin", methods=["POST"])
 def send_bot_stdin(bot_id):
-    user_id = session.get("user_id")
+    user_id, is_owner = get_auth_context()
     if not user_id:
         return jsonify({"ok": False, "error": "Unauthorized"}), 401
 
     db = read_json("database")
     bot = db["bots"].get(bot_id)
-    if not bot or (bot["owner_id"] != user_id and not session.get("is_owner")):
+    if not bot or (bot["owner_id"] != user_id and not is_owner):
         return jsonify({"ok": False, "error": "Access denied"}), 403
 
     term = BOT_TERMINALS.get(bot_id)
     if not term:
         return jsonify({"ok": False, "error": "Userbot terminal is not currently running. Start or Restart it first."}), 400
 
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     if data.get("ctrl_c"):
         try:
             if term["type"] == "pty" and term["fd"] is not None:
@@ -778,7 +811,7 @@ def send_bot_stdin(bot_id):
 
 @app.route("/api/my-bots")
 def my_bots():
-    user_id = session.get("user_id")
+    user_id, _ = get_auth_context()
     if not user_id:
         return jsonify({"ok": False, "error": "Unauthorized"}), 401
 
@@ -789,13 +822,13 @@ def my_bots():
 
 @app.route("/api/bot/<bot_id>/settings", methods=["GET", "POST"])
 def bot_settings(bot_id):
-    user_id = session.get("user_id")
+    user_id, is_owner = get_auth_context()
     if not user_id:
         return jsonify({"ok": False, "error": "Unauthorized"}), 401
 
     db = read_json("database")
     bot = db["bots"].get(bot_id)
-    if not bot or (bot["owner_id"] != user_id and not session.get("is_owner")):
+    if not bot or (bot["owner_id"] != user_id and not is_owner):
         return jsonify({"ok": False, "error": "Access denied"}), 403
 
     env_path = os.path.join(bot["dir"], ".env")
@@ -811,7 +844,7 @@ def bot_settings(bot_id):
             "env_vars": env_content
         })
 
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     if data.get("bot_name"):
         bot["bot_name"] = data["bot_name"].strip()
     if data.get("entry_file"):
@@ -826,13 +859,13 @@ def bot_settings(bot_id):
 
 @app.route("/api/bot/<bot_id>/logs")
 def get_bot_logs(bot_id):
-    user_id = session.get("user_id")
+    user_id, is_owner = get_auth_context()
     if not user_id:
         return jsonify({"ok": False, "error": "Unauthorized"}), 401
 
     db = read_json("database")
     bot = db["bots"].get(bot_id)
-    if not bot or (bot["owner_id"] != user_id and not session.get("is_owner")):
+    if not bot or (bot["owner_id"] != user_id and not is_owner):
         return jsonify({"ok": False, "error": "Access denied"}), 403
 
     if os.path.exists(bot["log_path"]):
@@ -844,15 +877,15 @@ def get_bot_logs(bot_id):
 
 @app.route("/api/bot/<bot_id>/action", methods=["POST"])
 def bot_action(bot_id):
-    user_id = session.get("user_id")
+    user_id, is_owner = get_auth_context()
     if not user_id:
         return jsonify({"ok": False, "error": "Unauthorized"}), 401
 
-    action = (request.json or {}).get("action")
+    action = (request.get_json(silent=True) or {}).get("action")
     db = read_json("database")
     bot = db["bots"].get(bot_id)
 
-    if not bot or (bot["owner_id"] != user_id and not session.get("is_owner")):
+    if not bot or (bot["owner_id"] != user_id and not is_owner):
         return jsonify({"ok": False, "error": "Access denied"}), 403
 
     pid = bot.get("pid")
@@ -894,7 +927,8 @@ def bot_action(bot_id):
 # --- ROUTES: OWNER MASTER CONTROL, BGM UPLOAD & JSON EXPORT ---
 @app.route("/api/owner/upload-bgm", methods=["POST"])
 def owner_upload_bgm():
-    if not session.get("is_owner"):
+    _, is_owner = get_auth_context()
+    if not is_owner:
         return jsonify({"ok": False, "error": "Owner privileges required."}), 403
 
     f = request.files.get("bgm")
@@ -916,7 +950,8 @@ def owner_upload_bgm():
 
 @app.route("/api/owner/overview")
 def owner_overview():
-    if not session.get("is_owner"):
+    _, is_owner = get_auth_context()
+    if not is_owner:
         return jsonify({"ok": False, "error": "Owner privileges required."}), 403
 
     db = read_json("database")
@@ -948,10 +983,11 @@ def owner_overview():
 
 @app.route("/api/owner/management", methods=["POST"])
 def owner_update_management():
-    if not session.get("is_owner"):
+    _, is_owner = get_auth_context()
+    if not is_owner:
         return jsonify({"ok": False, "error": "Owner privileges required."}), 403
 
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     mgmt = read_json("management")
 
     if "maintenance_mode" in data:
@@ -977,7 +1013,8 @@ def owner_update_management():
 
 @app.route("/api/owner/download-all")
 def owner_download_all():
-    if not session.get("is_owner"):
+    _, is_owner = get_auth_context()
+    if not is_owner:
         return jsonify({"ok": False, "error": "Owner privileges required."}), 403
 
     mem_zip = io.BytesIO()
@@ -1000,7 +1037,8 @@ def owner_download_all():
 
 @app.route("/api/owner/download-json/<db_name>")
 def owner_download_single_json(db_name):
-    if not session.get("is_owner"):
+    _, is_owner = get_auth_context()
+    if not is_owner:
         return jsonify({"ok": False, "error": "Owner privileges required."}), 403
     if db_name not in DB_FILES:
         return jsonify({"ok": False, "error": "Invalid JSON database name."}), 404
