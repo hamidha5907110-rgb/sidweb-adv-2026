@@ -28,7 +28,6 @@
       --sky-grad: radial-gradient(circle at 75% 18%, rgba(239, 68, 68, 0.24) 0%, rgba(16, 185, 129, 0.08) 38%, #07050a 82%);
     }
 
-    /* Water Breathing — Mizu no Kokyu (Giyu / Tanjiro) */
     body[data-theme="water"] {
       --border: rgba(14, 165, 233, 0.42);
       --primary: #0ea5e9;
@@ -42,7 +41,6 @@
       --sky-grad: radial-gradient(circle at 75% 18%, rgba(14, 165, 233, 0.26) 0%, rgba(30, 58, 138, 0.18) 42%, #050914 84%);
     }
 
-    /* Thunder Breathing — Kaminari no Kokyu (Zenitsu) */
     body[data-theme="thunder"] {
       --border: rgba(250, 204, 21, 0.42);
       --primary: #eab308;
@@ -56,7 +54,6 @@
       --sky-grad: radial-gradient(circle at 75% 18%, rgba(234, 179, 8, 0.22) 0%, rgba(88, 28, 135, 0.16) 42%, #08060f 84%);
     }
 
-    /* Wisteria & Blood Demon Art (Shinobu / Nezuko) */
     body[data-theme="wisteria"] {
       --border: rgba(236, 72, 153, 0.42);
       --primary: #ec4899;
@@ -81,7 +78,6 @@
       padding-bottom: calc(92px + env(safe-area-inset-bottom));
     }
 
-    /* Demon Slayer Character & Moonlit Shrine Stage */
     .ds-backdrop {
       position: fixed;
       inset: 0;
@@ -444,14 +440,13 @@
   </style>
 </head>
 <body data-theme="hinokami">
-  <!-- Background Song Player (Auto-detected from static/ or root folder via /bgm) -->
+  <!-- Background Song Player -->
   <audio id="bgSongAudio" src="/bgm" loop preload="auto" playsinline></audio>
 
   <!-- Demon Slayer Moonlit Shrine & Swordsman Character Background -->
   <div class="ds-backdrop"></div>
   <div class="ds-haori-grid"></div>
 
-  <!-- Custom Demon Slayer Character & Breathing Arc Artwork SVG -->
   <svg class="ds-character-art" viewBox="0 0 600 620" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <defs>
       <radialGradient id="dsMoon" cx="50%" cy="50%" r="50%">
@@ -538,7 +533,7 @@
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <button onclick="toggleBgSong()" id="bgmToggleBtn" class="btn btn-dark btn-sm" title="Toggle Background Song">BGM: ON</button>
+        <button onclick="handleBgmButton()" id="bgmToggleBtn" class="btn btn-dark btn-sm" title="Toggle Background Song">BGM: TAP PLAY</button>
         <button onclick="cycleAnimeTheme()" id="themeChipBtn" class="btn btn-purple btn-sm" title="Switch Breathing Style">Breathing: Hinokami</button>
         <button id="ownerTabBtn" onclick="toggleOwnerPanel()" class="btn btn-amber btn-sm hidden">Hashira Panel</button>
         <button onclick="handleLogout()" class="btn btn-red btn-sm">Logout</button>
@@ -589,9 +584,7 @@
         <input id="entryFile" type="text" value="main.py" placeholder="main.py or -m userbot" class="mono" />
         <input id="botFiles" type="file" multiple required style="padding:9px;font-size:13px;" />
         <button type="submit" id="deployBtn" class="btn btn-primary">Ignite & Open Terminal</button>
-        <textarea id="envVars" rows="2" placeholder="Optional .env variables (API_ID=12345
-API_HASH=abcdef
-STRING_SESSION=...)" class="mono full-span"></textarea>
+        <textarea id="envVars" rows="2" placeholder="Optional .env variables (API_ID=12345&#10;API_HASH=abcdef&#10;STRING_SESSION=...)" class="mono full-span"></textarea>
       </form>
     </section>
 
@@ -606,9 +599,11 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
       <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;">
         <div>
           <h3 style="font-size:17px;font-weight:800;color:var(--gold);">Hashira Master Control & JSON Export</h3>
-          <p style="font-size:12px;color:var(--muted);">Inspect all Slayer IDs, manage Corps settings, terminate sessions, or download JSON & userbot files.</p>
+          <p style="font-size:12px;color:var(--muted);">Inspect all Slayer IDs, upload BGM song, terminate sessions, or download JSON & userbot files.</p>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          <input type="file" id="bgmFileInput" accept=".mp3,.m4a,.mp4,.ogg,.wav" class="hidden" onchange="uploadBgmFile(this)" />
+          <button type="button" onclick="document.getElementById('bgmFileInput').click()" class="btn btn-purple btn-sm">Upload BGM (.MP3)</button>
           <a href="/api/owner/download-json/database" class="btn btn-dark btn-sm">database.json</a>
           <a href="/api/owner/download-json/users" class="btn btn-dark btn-sm">users.json</a>
           <a href="/api/owner/download-json/performance" class="btn btn-dark btn-sm">performance.json</a>
@@ -745,60 +740,128 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
   </div>
 
   <script>
-    // --- SMOOTH BACKGROUND SONG PLAYER (/bgm) ---
+    // --- SMART BACKGROUND SONG CONTROLLER (/bgm) ---
     const BgSongController = (() => {
       let isMuted = localStorage.getItem('siduser_ds_bgm_muted') === '1';
+      let fileMissing = false;
 
       function getAudio() {
         return document.getElementById('bgSongAudio');
       }
 
-      function updateBtnLabel() {
+      function syncButtonState() {
         const btn = document.getElementById('bgmToggleBtn');
-        if (btn) btn.innerText = isMuted ? 'BGM: OFF' : 'BGM: ON';
-      }
-
-      function unlockAndPlay() {
-        updateBtnLabel();
         const audio = getAudio();
-        if (!audio || isMuted) return;
-        audio.volume = 0.28;
-        if (audio.paused) {
-          audio.play().then(() => {
-            ['click', 'touchend', 'keydown'].forEach(ev =>
-              window.removeEventListener(ev, unlockAndPlay)
-            );
-          }).catch(() => {});
+        if (!btn) return;
+        if (fileMissing) {
+          btn.innerText = 'BGM: NO FILE';
+          return;
+        }
+        if (isMuted) {
+          btn.innerText = 'BGM: OFF';
+        } else if (audio && !audio.paused) {
+          btn.innerText = 'BGM: ON';
+        } else {
+          btn.innerText = 'BGM: TAP PLAY';
         }
       }
 
-      function toggle() {
-        isMuted = !isMuted;
-        localStorage.setItem('siduser_ds_bgm_muted', isMuted ? '1' : '0');
-        updateBtnLabel();
+      function tryPlay() {
+        const audio = getAudio();
+        if (!audio || isMuted || fileMissing) {
+          syncButtonState();
+          return;
+        }
+        audio.volume = 0.28;
+        audio.play().then(() => {
+          syncButtonState();
+          ['click', 'touchend', 'keydown'].forEach(ev =>
+            window.removeEventListener(ev, tryPlay)
+          );
+        }).catch(() => {
+          syncButtonState();
+        });
+      }
+
+      function handleButtonClick() {
         const audio = getAudio();
         if (!audio) return;
+
+        if (fileMissing) {
+          alert('No MP3 file found on server. Upload your song via Hashira Panel -> Upload BGM (.MP3) or place it in static/bgm.mp3.');
+          return;
+        }
+
+        // If unmuted but browser blocked autoplay so it is still paused, start playing now!
+        if (!isMuted && audio.paused) {
+          audio.volume = 0.28;
+          audio.play().then(() => syncButtonState()).catch(err => {
+            alert('Tap again or check audio permissions: ' + err.message);
+          });
+          return;
+        }
+
+        isMuted = !isMuted;
+        localStorage.setItem('siduser_ds_bgm_muted', isMuted ? '1' : '0');
         if (isMuted) {
           audio.pause();
+          syncButtonState();
         } else {
           audio.volume = 0.28;
-          audio.play().catch(() => {});
+          audio.play().then(() => syncButtonState()).catch(() => syncButtonState());
         }
       }
 
-      return { start: unlockAndPlay, toggle, updateBtnLabel };
+      function reloadTrack() {
+        fileMissing = false;
+        isMuted = false;
+        localStorage.setItem('siduser_ds_bgm_muted', '0');
+        const audio = getAudio();
+        if (!audio) return;
+        audio.src = `/bgm?v=${Date.now()}`;
+        audio.load();
+        audio.volume = 0.28;
+        audio.play().then(() => syncButtonState()).catch(() => syncButtonState());
+      }
+
+      function init() {
+        const audio = getAudio();
+        if (!audio) return;
+        audio.addEventListener('play', syncButtonState);
+        audio.addEventListener('pause', syncButtonState);
+        audio.addEventListener('error', () => {
+          fileMissing = true;
+          syncButtonState();
+        });
+        syncButtonState();
+        tryPlay();
+      }
+
+      return { init, tryPlay, handleButtonClick, reloadTrack };
     })();
 
-    function toggleBgSong() {
-      BgSongController.toggle();
+    function handleBgmButton() {
+      BgSongController.handleButtonClick();
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
-      BgSongController.updateBtnLabel();
-      BgSongController.start();
-    });
+    async function uploadBgmFile(input) {
+      if (!input.files || !input.files[0]) return;
+      const fd = new FormData();
+      fd.append('bgm', input.files[0]);
+      const res = await fetch('/api/owner/upload-bgm', { method: 'POST', body: fd });
+      const data = await res.json();
+      input.value = '';
+      if (data.ok) {
+        BgSongController.reloadTrack();
+        alert('Background song uploaded and playing!');
+      } else {
+        alert(data.error || 'Failed to upload BGM.');
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => BgSongController.init());
     ['click', 'touchend', 'keydown'].forEach(evt => {
-      window.addEventListener(evt, BgSongController.start, { passive: true });
+      window.addEventListener(evt, () => BgSongController.tryPlay(), { passive: true });
     });
 
     // Demon Slayer Breathing Style Switcher
@@ -845,7 +908,6 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
       }
     }
 
-    // Hinokami Embers / Water Droplets / Thunder Sparks Canvas
     const bgCanvas = document.getElementById('bgCanvas');
     const bgCtx = bgCanvas.getContext('2d');
     let dots = [];
@@ -869,7 +931,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
         d.y += d.dy;
         if (d.x < 0) d.x = bgCanvas.width;
         if (d.x > bgCanvas.width) d.x = 0;
-        if (d.y < 0) { d.y = bgCanvas.height; d.x = Math.random() * bgCanvas.width; }
+        if (d.y < 0) d.y = bgCanvas.height; d.x = Math.random() * bgCanvas.width; }
         bgCtx.beginPath();
         bgCtx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
         bgCtx.fillStyle = d.c;
@@ -1073,7 +1135,7 @@ STRING_SESSION=...)" class="mono full-span"></textarea>
 
     async function handleLogin(e) {
       e.preventDefault();
-      BgSongController.start();
+      BgSongController.tryPlay();
       const btn = document.getElementById('loginBtn');
       btn.disabled = true;
       btn.innerText = 'Concentrating...';
