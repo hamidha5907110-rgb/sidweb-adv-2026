@@ -444,8 +444,8 @@
   </style>
 </head>
 <body data-theme="hinokami">
-  <!-- Background Theme Song Player (Place your song file at static/bgm.mp3) -->
-  <audio id="bgSongAudio" src="/static/bgm.mp3" loop preload="auto"></audio>
+  <!-- Background Song Player (Auto-detected from static/ or root folder via /bgm) -->
+  <audio id="bgSongAudio" src="/bgm" loop preload="auto" playsinline></audio>
 
   <!-- Demon Slayer Moonlit Shrine & Swordsman Character Background -->
   <div class="ds-backdrop"></div>
@@ -589,7 +589,9 @@
         <input id="entryFile" type="text" value="main.py" placeholder="main.py or -m userbot" class="mono" />
         <input id="botFiles" type="file" multiple required style="padding:9px;font-size:13px;" />
         <button type="submit" id="deployBtn" class="btn btn-primary">Ignite & Open Terminal</button>
-        <textarea id="envVars" rows="2" placeholder="Optional .env variables (API_ID=12345&#10;API_HASH=abcdef&#10;STRING_SESSION=...)" class="mono full-span"></textarea>
+        <textarea id="envVars" rows="2" placeholder="Optional .env variables (API_ID=12345
+API_HASH=abcdef
+STRING_SESSION=...)" class="mono full-span"></textarea>
       </form>
     </section>
 
@@ -743,7 +745,7 @@
   </div>
 
   <script>
-    // --- SMOOTH BACKGROUND SONG PLAYER (/static/bgm.mp3) ---
+    // --- SMOOTH BACKGROUND SONG PLAYER (/bgm) ---
     const BgSongController = (() => {
       let isMuted = localStorage.getItem('siduser_ds_bgm_muted') === '1';
 
@@ -756,17 +758,17 @@
         if (btn) btn.innerText = isMuted ? 'BGM: OFF' : 'BGM: ON';
       }
 
-      function start() {
+      function unlockAndPlay() {
         updateBtnLabel();
         const audio = getAudio();
-        if (!audio) return;
-        audio.volume = 0.28; // Normal smooth background volume
-        if (isMuted) {
-          audio.pause();
-          return;
-        }
+        if (!audio || isMuted) return;
+        audio.volume = 0.28;
         if (audio.paused) {
-          audio.play().catch(() => {});
+          audio.play().then(() => {
+            ['click', 'touchend', 'keydown'].forEach(ev =>
+              window.removeEventListener(ev, unlockAndPlay)
+            );
+          }).catch(() => {});
         }
       }
 
@@ -784,7 +786,7 @@
         }
       }
 
-      return { start, toggle, updateBtnLabel };
+      return { start: unlockAndPlay, toggle, updateBtnLabel };
     })();
 
     function toggleBgSong() {
@@ -795,8 +797,8 @@
       BgSongController.updateBtnLabel();
       BgSongController.start();
     });
-    ['pointerdown', 'keydown', 'touchstart'].forEach(evt => {
-      window.addEventListener(evt, () => BgSongController.start(), { once: true, passive: true });
+    ['click', 'touchend', 'keydown'].forEach(evt => {
+      window.addEventListener(evt, BgSongController.start, { passive: true });
     });
 
     // Demon Slayer Breathing Style Switcher
