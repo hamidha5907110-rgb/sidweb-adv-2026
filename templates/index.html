@@ -440,8 +440,8 @@
   </style>
 </head>
 <body data-theme="hinokami">
-  <!-- Background Song Player -->
-  <audio id="bgSongAudio" src="/bgm" loop preload="auto" playsinline></audio>
+  <!-- Background Song Player (Auto-plays globally for Owner + All Users) -->
+  <audio id="bgSongAudio" loop preload="auto" playsinline></audio>
 
   <!-- Demon Slayer Moonlit Shrine & Swordsman Character Background -->
   <div class="ds-backdrop"></div>
@@ -535,7 +535,6 @@
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <button onclick="handleBgmButton()" id="bgmToggleBtn" class="btn btn-dark btn-sm" title="Toggle Background Song">BGM: PLAY</button>
         <button onclick="cycleAnimeTheme()" id="themeChipBtn" class="btn btn-purple btn-sm" title="Switch Breathing Style">Breathing: Hinokami</button>
         <button id="ownerTabBtn" onclick="toggleOwnerPanel()" class="btn btn-amber btn-sm hidden">Hashira Panel</button>
         <button onclick="handleLogout()" class="btn btn-red btn-sm">Logout</button>
@@ -601,11 +600,11 @@
       <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;">
         <div>
           <h3 style="font-size:17px;font-weight:800;color:var(--gold);">Hashira Master Control & JSON Export</h3>
-          <p style="font-size:12px;color:var(--muted);">Inspect all Slayer IDs, upload BGM song, terminate sessions, or download JSON & userbot files.</p>
+          <p style="font-size:12px;color:var(--muted);">Inspect all Slayer IDs, upload global BGM song, terminate sessions, or download JSON & userbot files.</p>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;">
-          <input type="file" id="bgmFileInput" accept=".mp3,.m4a,.mp4,.ogg,.wav,audio/*" class="hidden" onchange="uploadBgmFile(this)" />
-          <button type="button" onclick="document.getElementById('bgmFileInput').click()" class="btn btn-purple btn-sm">Upload Audio (.MP3)</button>
+          <input type="file" id="bgmFileInput" accept=".mp3,.m4a,.mp4,.ogg,.wav,.aac,.webm,.mpeg,audio/*" class="hidden" onchange="uploadBgmFile(this)" />
+          <button type="button" id="uploadBgmBtn" onclick="document.getElementById('bgmFileInput').click()" class="btn btn-purple btn-sm">Upload Audio (.MP3)</button>
           <button type="button" onclick="ownerDownload('/api/owner/download-json/database')" class="btn btn-dark btn-sm">database.json</button>
           <button type="button" onclick="ownerDownload('/api/owner/download-json/users')" class="btn btn-dark btn-sm">users.json</button>
           <button type="button" onclick="ownerDownload('/api/owner/download-json/performance')" class="btn btn-dark btn-sm">performance.json</button>
@@ -773,133 +772,121 @@
       window.location.href = `${basePath}?okey=${okey}`;
     }
 
-    // --- SMART BACKGROUND SONG CONTROLLER (/bgm) ---
+    // --- GLOBAL AUTO-PLAY BACKGROUND SONG CONTROLLER (ALL USERS + OWNER) ---
     const BgSongController = (() => {
-      let isMuted = localStorage.getItem('siduser_ds_bgm_muted') === '1';
-      let fileMissing = false;
-      const unlockEvents = ['pointerdown', 'touchstart', 'touchend', 'click', 'keydown', 'input'];
+      let currentVersion = null;
+      let audioUnlocked = false;
+      let unlockCtx = null;
+      const gestureEvents = ['pointerdown', 'touchstart', 'touchend', 'click', 'keydown'];
 
       function getAudio() {
         return document.getElementById('bgSongAudio');
       }
 
-      function syncButtonState() {
-        const btn = document.getElementById('bgmToggleBtn');
-        const audio = getAudio();
-        if (!btn) return;
-        if (fileMissing) {
-          btn.innerText = 'BGM: NO AUDIO';
-          return;
-        }
-        if (isMuted) {
-          btn.innerText = 'BGM: OFF';
-        } else if (audio && !audio.paused) {
-          btn.innerText = 'BGM: ON';
-        } else {
-          btn.innerText = 'BGM: PLAY';
-        }
+      // Synchronously unlocks browser audio context during a user gesture (before async fetch)
+      function primeUnlock() {
+        try {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          if (Ctx && !unlockCtx) unlockCtx = new Ctx();
+          if (unlockCtx && unlockCtx.state === 'suspended') {
+            unlockCtx.resume().catch(() => {});
+          }
+        } catch (_) {}
       }
 
-      function tryPlay() {
+      function attemptPlay() {
         const audio = getAudio();
-        if (!audio || isMuted || fileMissing) {
-          syncButtonState();
-          return;
-        }
+        if (!audio || !currentVersion) return;
         audio.volume = 0.30;
         if (!audio.paused) {
-          syncButtonState();
+          audioUnlocked = true;
           return;
         }
-        const playPromise = audio.play();
-        if (playPromise && typeof playPromise.then === 'function') {
-          playPromise.then(() => {
-            syncButtonState();
-            unlockEvents.forEach(ev => window.removeEventListener(ev, tryPlay));
-          }).catch(() => {
-            syncButtonState();
-          });
+        const p = audio.play();
+        if (p && typeof p.then === 'function') {
+          p.then(() => {
+            audioUnlocked = true;
+          }).catch(() => {});
         }
       }
 
-      function handleButtonClick() {
+      function loadAndPlay(version) {
+        if (!version) return;
         const audio = getAudio();
         if (!audio) return;
 
-        if (fileMissing) {
-          alert('No audio file uploaded yet. Log in as Owner -> Hashira Panel -> Upload Audio (.MP3).');
-          return;
+        if (currentVersion !== version || !audio.src) {
+          currentVersion = version;
+          audio.src = `/bgm?v=${encodeURIComponent(version)}`;
+          audio.load();
         }
+        attemptPlay();
+      }
 
-        if (!isMuted && audio.paused) {
-          audio.volume = 0.30;
-          audio.play().then(() => syncButtonState()).catch(() => syncButtonState());
-          return;
-        }
+      async function syncFromServer() {
+        try {
+          const data = await apiFetch('/api/bgm-status');
+          if (data && data.ok && data.has_bgm && data.v) {
+            loadAndPlay(data.v);
+          }
+        } catch (_) {}
+      }
 
-        isMuted = !isMuted;
-        localStorage.setItem('siduser_ds_bgm_muted', isMuted ? '1' : '0');
-        if (isMuted) {
-          audio.pause();
-          syncButtonState();
+      function onUserGesture() {
+        primeUnlock();
+        if (currentVersion) {
+          attemptPlay();
         } else {
-          audio.volume = 0.30;
-          audio.play().then(() => syncButtonState()).catch(() => syncButtonState());
+          syncFromServer();
         }
-      }
-
-      function reloadTrack() {
-        fileMissing = false;
-        isMuted = false;
-        localStorage.setItem('siduser_ds_bgm_muted', '0');
-        const audio = getAudio();
-        if (!audio) return;
-        audio.src = `/bgm?v=${Date.now()}`;
-        audio.load();
-        audio.volume = 0.30;
-        audio.play().then(() => syncButtonState()).catch(() => syncButtonState());
       }
 
       function init() {
+        localStorage.removeItem('siduser_ds_bgm_muted');
         const audio = getAudio();
-        if (!audio) return;
-        audio.addEventListener('play', syncButtonState);
-        audio.addEventListener('pause', syncButtonState);
-        audio.addEventListener('canplay', tryPlay);
-        audio.addEventListener('error', () => {
-          fileMissing = true;
-          syncButtonState();
+        if (audio) {
+          audio.addEventListener('canplay', attemptPlay);
+          audio.addEventListener('loadeddata', attemptPlay);
+        }
+        gestureEvents.forEach(ev => {
+          window.addEventListener(ev, onUserGesture, { passive: true });
         });
-        syncButtonState();
-        tryPlay();
+        syncFromServer();
       }
 
-      return { init, tryPlay, handleButtonClick, reloadTrack, unlockEvents };
+      return { init, primeUnlock, loadAndPlay, syncFromServer };
     })();
-
-    function handleBgmButton() {
-      BgSongController.handleButtonClick();
-    }
 
     async function uploadBgmFile(input) {
       if (!input.files || !input.files[0]) return;
+      // Capture user gesture immediately before network upload
+      BgSongController.primeUnlock();
+
+      const btn = document.getElementById('uploadBgmBtn');
+      const origText = btn ? btn.innerText : 'Upload Audio (.MP3)';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerText = 'Uploading Audio...';
+      }
+
       const fd = new FormData();
       fd.append('bgm', input.files[0]);
       const data = await apiFetch('/api/owner/upload-bgm', { method: 'POST', body: fd });
       input.value = '';
-      if (data.ok) {
-        BgSongController.reloadTrack();
-        alert('Background audio uploaded and playing!');
+
+      if (btn) {
+        btn.disabled = false;
+        btn.innerText = origText;
+      }
+
+      if (data && data.ok) {
+        BgSongController.loadAndPlay(data.v || Date.now());
       } else {
-        alert(data.error || 'Failed to upload audio.');
+        alert((data && data.error) || 'Failed to upload audio.');
       }
     }
 
     window.addEventListener('DOMContentLoaded', () => BgSongController.init());
-    window.addEventListener('load', () => BgSongController.tryPlay());
-    BgSongController.unlockEvents.forEach(evt => {
-      window.addEventListener(evt, () => BgSongController.tryPlay(), { passive: true });
-    });
 
     // Demon Slayer Breathing Style Switcher
     const BREATHING_THEMES = [
@@ -1071,6 +1058,13 @@
       socketInitialized = true;
       const socket = io();
 
+      // Receive global BGM broadcast from Owner on all open user & owner sessions
+      socket.on('bgm_updated', (payload) => {
+        if (payload && payload.v) {
+          BgSongController.loadAndPlay(payload.v);
+        }
+      });
+
       socket.on('telemetry_update', (data) => {
         document.getElementById('sysCpuVal').innerText = data.sys_cpu + '%';
         document.getElementById('sysRamVal').innerText = data.sys_ram + '%';
@@ -1163,10 +1157,11 @@
         document.getElementById('mobileOwnerNavBtn').classList.remove('hidden');
       }
       loadMyBots();
-      initSocket();
+      BgSongController.syncFromServer();
     }
 
     async function checkAuth() {
+      initSocket();
       const data = await apiFetch('/api/me');
       if (data && data.authenticated) {
         enterDashboard(data);
@@ -1175,7 +1170,7 @@
 
     async function handleLogin(e) {
       if (e) e.preventDefault();
-      BgSongController.tryPlay();
+      BgSongController.primeUnlock();
 
       const btn = document.getElementById('loginBtn');
       const errBox = document.getElementById('loginErrorMsg');
