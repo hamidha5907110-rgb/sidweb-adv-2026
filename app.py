@@ -61,6 +61,7 @@ DEFAULT_DATA = {
         "max_bots_per_user": config.MAX_BOTS_PER_USER,
         "auto_install_deps": True,
         "ast_security_scan": True,
+        "bgm_version": 0,
         "banned_user_ids": []
     }
 }
@@ -567,40 +568,63 @@ def telemetry_worker():
         time.sleep(2)
 
 
-# --- ROUTES: HEALTH, RANGE-ENABLED BGM STREAMING & USER-ID AUTH ---
+# --- ROUTES: HEALTH, BROADCAST BGM AUDIO STREAMING & USER-ID AUTH ---
 @app.route("/health")
 def health():
     return jsonify({"ok": True, "uptime": int(time.time() - START_TIME)})
 
 
-AUDIO_EXTS = (".mp3", ".m4a", ".mp4", ".ogg", ".wav")
+AUDIO_EXTS = (".mp3", ".m4a", ".mp4", ".ogg", ".wav", ".aac", ".webm", ".mpeg")
+AUDIO_MIMES = {
+    ".mp3": "audio/mpeg",
+    ".mpeg": "audio/mpeg",
+    ".m4a": "audio/mp4",
+    ".mp4": "audio/mp4",
+    ".ogg": "audio/ogg",
+    ".wav": "audio/wav",
+    ".aac": "audio/aac",
+    ".webm": "audio/webm",
+}
 
 
-def _send_no_cache_audio(file_path):
-    resp = send_file(file_path, conditional=True)
-    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-    return resp
-
-
-@app.route("/bgm")
-def serve_bgm():
+def find_bgm_file():
     for folder in (STATIC_DIR, config.DATA_DIR, config.BASE_DIR):
         if not os.path.isdir(folder):
             continue
         for ext in AUDIO_EXTS:
             preferred = os.path.join(folder, f"bgm{ext}")
             if os.path.exists(preferred):
-                return _send_no_cache_audio(preferred)
+                return preferred
         for fname in sorted(os.listdir(folder)):
             if fname.lower().endswith(AUDIO_EXTS):
-                return _send_no_cache_audio(os.path.join(folder, fname))
+                return os.path.join(folder, fname)
 
     for root, _, files in os.walk(config.UPLOAD_DIR):
         for fname in sorted(files):
             if fname.lower().endswith(AUDIO_EXTS):
-                return _send_no_cache_audio(os.path.join(root, fname))
+                return os.path.join(root, fname)
+    return None
 
-    resp = jsonify({"ok": False, "error": "No audio file found."})
+
+@app.route("/api/bgm-status")
+def bgm_status():
+    bgm_path = find_bgm_file()
+    mgmt = read_json("management")
+    version = mgmt.get("bgm_version") or (int(os.path.getmtime(bgm_path)) if bgm_path else 0)
+    return jsonify({"ok": True, "has_bgm": bool(bgm_path), "v": version})
+
+
+@app.route("/bgm")
+def serve_bgm():
+    bgm_path = find_bgm_file()
+    if bgm_path:
+        ext = os.path.splitext(bgm_path)[1].lower()
+        mime = AUDIO_MIMES.get(ext, "audio/mpeg")
+        resp = send_file(bgm_path, mimetype=mime, conditional=True)
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        return resp
+
+    resp = jsonify({"ok": False, "error": "No audio file uploaded yet."})
     resp.status_code = 404
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     return resp
@@ -933,7 +957,7 @@ def bot_action(bot_id):
     return jsonify({"ok": True})
 
 
-# --- ROUTES: OWNER MASTER CONTROL, AUDIO UPLOAD & JSON EXPORT ---
+# --- ROUTES: OWNER MASTER CONTROL, GLOBAL BGM BROADCAST & JSON EXPORT ---
 @app.route("/api/owner/upload-bgm", methods=["POST"])
 def owner_upload_bgm():
     _, is_owner = get_auth_context()
@@ -946,7 +970,7 @@ def owner_upload_bgm():
 
     ext = os.path.splitext(f.filename)[1].lower()
     if ext not in AUDIO_EXTS:
-        return jsonify({"ok": False, "error": "Supported formats: .mp3, .m4a, .mp4, .ogg, .wav"}), 400
+        return jsonify({"ok": False, "error": "Supported formats: .mp3, .m4a, .mp4, .ogg, .wav, .aac"}), 400
 
     for folder in (STATIC_DIR, config.DATA_DIR):
         for old in os.listdir(folder):
@@ -957,7 +981,15 @@ def owner_upload_bgm():
     data_path = os.path.join(config.DATA_DIR, f"bgm{ext}")
     f.save(static_path)
     shutil.copy2(static_path, data_path)
-    return jsonify({"ok": True})
+
+    bgm_v = int(time.time())
+    mgmt = read_json("management")
+    mgmt["bgm_version"] = bgm_v
+    write_json("management", mgmt)
+
+    # Broadcast to ALL connected users & owner so everyone starts playing automatically
+    socketio.emit("bgm_updated", {"v": bgm_v})
+    return jsonify({"ok": True, "v": bgm_v})
 
 
 @app.route("/api/owner/overview")
